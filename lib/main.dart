@@ -1,5 +1,9 @@
 import 'package:device_preview/device_preview.dart';
 import 'package:fashionmobile/page/home.dart';
+import 'package:fashionmobile/page/product_page.dart';
+import 'package:fashionmobile/page/product_detail_page.dart';
+import 'package:fashionmobile/page/login_page.dart';
+import 'package:fashionmobile/page/register_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -16,13 +20,21 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
+      title: 'Fashion Mobile',
       theme: ThemeData(
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const HomePage(),
+      initialRoute: '/login',
+      routes: {
+        '/': (context) => const HomePage(),
+        '/products': (context) => const ProductPage(),
+        '/product-detail': (context) => const ProductDetailPage(),
+        '/login': (context) => const LoginPage(),
+        '/register': (context) => const RegisterPage(),
+      },
     );
   }
 }

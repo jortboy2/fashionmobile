@@ -3,6 +3,8 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'category_page.dart';
 import 'cart_page.dart';
 import 'profile_page.dart';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -21,6 +23,10 @@ class _HomePageState extends State<HomePage> {
   ];
 
   void _onItemTapped(int index) {
+    if (index == 3 && !AuthService.isLoggedIn) {
+      Navigator.pushNamed(context, '/login');
+      return;
+    }
     setState(() {
       _selectedIndex = index;
     });
@@ -59,8 +65,40 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class HomeContent extends StatelessWidget {
+class HomeContent extends StatefulWidget {
   const HomeContent({Key? key}) : super(key: key);
+
+  @override
+  State<HomeContent> createState() => _HomeContentState();
+}
+
+class _HomeContentState extends State<HomeContent> {
+  final ApiService _apiService = ApiService();
+  List<dynamic> _products = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final products = await _apiService.getProducts();
+      setState(() {
+        _products = products;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading products: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +142,7 @@ class HomeContent extends StatelessWidget {
                 height: 200.0,
                 autoPlay: true,
                 enlargeCenterPage: true,
-                aspectRatio: 16/9,
+                aspectRatio: 16 / 9,
                 autoPlayInterval: const Duration(seconds: 3),
               ),
               items: [
@@ -129,7 +167,8 @@ class HomeContent extends StatelessWidget {
                             if (loadingProgress == null) return child;
                             return Center(
                               child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
+                                value: loadingProgress.expectedTotalBytes !=
+                                        null
                                     ? loadingProgress.cumulativeBytesLoaded /
                                         loadingProgress.expectedTotalBytes!
                                     : null,
@@ -188,34 +227,105 @@ class HomeContent extends StatelessWidget {
               ),
             ),
 
-            // Featured Products
+            // Products
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Featured Products',
+                    'Products',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.75,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                    ),
-                    itemCount: 4,
-                    itemBuilder: (context, index) {
-                      return _buildProductCard();
-                    },
-                  ),
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 0.75,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                          ),
+                          itemCount: _products.length,
+                          itemBuilder: (context, index) {
+                            final product = _products[index];
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/product-detail',
+                                  arguments: product['id'],
+                                );
+                              },
+                              child: Card(
+                                elevation: 4,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: (product['productImages'] != null &&
+                                              product['productImages'] is List &&
+                                              product['productImages'].isNotEmpty &&
+                                              product['productImages'][0] is Map &&
+                                              product['productImages'][0]['imageUrl'] != null &&
+                                              (product['productImages'][0]['imageUrl'] as String).isNotEmpty)
+                                          ? Image.network(
+                                              'http://192.168.1.58:8080${product['productImages'][0]['imageUrl']}',
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                            )
+                                          : Container(
+                                              color: Colors.grey[300],
+                                              child: const Icon(Icons.image_not_supported),
+                                            ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            product['name'] ?? 'No Name',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${product['price']?.toString() ?? '0'} VNĐ',
+                                            style: const TextStyle(
+                                              color: Colors.green,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          if (product['category'] != null)
+                                            Text(
+                                              product['category']['name'] ?? '',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                 ],
               ),
             ),
@@ -225,79 +335,34 @@ class HomeContent extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoryItem(String title, IconData icon) {
+  Widget _buildCategoryItem(String name, IconData icon) {
     return Container(
-      width: 100,
-      margin: const EdgeInsets.only(right: 16),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(10),
-      ),
+      width: 80,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 30),
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Icon(
+              icon,
+              color: Colors.blue,
+              size: 30,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
-            title,
-            style: const TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(10),
-                ),
-              ),
-              child: const Center(
-                child: Icon(Icons.image, size: 50),
-              ),
+            name,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Product Name',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '\$99.99',
-                  style: TextStyle(
-                    color: Colors.blue[700],
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
