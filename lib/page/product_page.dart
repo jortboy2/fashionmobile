@@ -1,3 +1,4 @@
+import 'package:fashionmobile/services/network_service.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/category.dart';
@@ -24,6 +25,7 @@ class _ProductPageState extends State<ProductPage> {
   Category? _selectedCategory;
   RangeValues _priceRange = const RangeValues(0, 10000000);
   String _sortBy = 'name'; // 'name', 'price_asc', 'price_desc'
+  static const String baseUrl = NetworkService.defaultIp;
 
   @override
   void initState() {
@@ -35,11 +37,13 @@ class _ProductPageState extends State<ProductPage> {
   Future<void> _loadData() async {
     try {
       final categories = await _apiService.getCategories();
-      final products = await _apiService.getProductsByCategory(widget.categoryId);
-      
+      final products =
+          await _apiService.getProductsByCategory(widget.categoryId);
+
       setState(() {
         _categories = categories.map((c) => Category.fromJson(c)).toList();
-        _selectedCategory = _categories.firstWhere((c) => c.id == widget.categoryId);
+        _selectedCategory =
+            _categories.firstWhere((c) => c.id == widget.categoryId);
         _products = products;
         _filteredProducts = products;
         _isLoading = false;
@@ -61,8 +65,8 @@ class _ProductPageState extends State<ProductPage> {
         // Category filter
         if (_selectedCategory != null) {
           final productCategory = product['category'];
-          if (productCategory == null || 
-              productCategory['id'] == null || 
+          if (productCategory == null ||
+              productCategory['id'] == null ||
               productCategory['id'] != _selectedCategory!.id) {
             return false;
           }
@@ -83,9 +87,11 @@ class _ProductPageState extends State<ProductPage> {
           case 'name':
             return (a['name'] ?? '').compareTo(b['name'] ?? '');
           case 'price_asc':
-            return ((a['price'] ?? 0) as num).compareTo((b['price'] ?? 0) as num);
+            return ((a['price'] ?? 0) as num)
+                .compareTo((b['price'] ?? 0) as num);
           case 'price_desc':
-            return ((b['price'] ?? 0) as num).compareTo((a['price'] ?? 0) as num);
+            return ((b['price'] ?? 0) as num)
+                .compareTo((a['price'] ?? 0) as num);
           default:
             return 0;
         }
@@ -106,7 +112,8 @@ class _ProductPageState extends State<ProductPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Size Selection
-              if (product['productSizes'] != null && product['productSizes'].isNotEmpty)
+              if (product['productSizes'] != null &&
+                  product['productSizes'].isNotEmpty)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -117,7 +124,8 @@ class _ProductPageState extends State<ProductPage> {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: (product['productSizes'] as List).map((sizeData) {
+                      children:
+                          (product['productSizes'] as List).map((sizeData) {
                         final sizeId = sizeData['id']['sizeId'];
                         final stock = sizeData['stock'];
                         final size = _getSizeName(sizeId);
@@ -145,9 +153,8 @@ class _ProductPageState extends State<ProductPage> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.remove),
-                    onPressed: quantity > 1
-                        ? () => setState(() => quantity--)
-                        : null,
+                    onPressed:
+                        quantity > 1 ? () => setState(() => quantity--) : null,
                   ),
                   Text(
                     quantity.toString(),
@@ -170,7 +177,8 @@ class _ProductPageState extends State<ProductPage> {
               onPressed: selectedSize.isEmpty
                   ? null
                   : () async {
-                      await CartService.addToCart(product, selectedSize, quantity);
+                      await CartService.addToCart(
+                          product, selectedSize, quantity);
                       if (mounted) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -246,7 +254,8 @@ class _ProductPageState extends State<ProductPage> {
                           itemCount: _categories.length,
                           itemBuilder: (context, index) {
                             final category = _categories[index];
-                            final isSelected = _selectedCategory?.id == category.id;
+                            final isSelected =
+                                _selectedCategory?.id == category.id;
                             return Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: ChoiceChip(
@@ -254,7 +263,8 @@ class _ProductPageState extends State<ProductPage> {
                                 selected: isSelected,
                                 onSelected: (selected) {
                                   setState(() {
-                                    _selectedCategory = selected ? category : null;
+                                    _selectedCategory =
+                                        selected ? category : null;
                                     _applyFilters();
                                   });
                                 },
@@ -412,7 +422,8 @@ class _ProductPageState extends State<ProductPage> {
                         )
                       : GridView.builder(
                           padding: const EdgeInsets.all(16),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
                             childAspectRatio: 0.75,
                             crossAxisSpacing: 10,
@@ -435,26 +446,37 @@ class _ProductPageState extends State<ProductPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Expanded(
-                                      child: (product['productImages'] != null &&
-                                              product['productImages'] is List &&
-                                              product['productImages'].isNotEmpty &&
-                                              product['productImages'][0] is Map &&
-                                              product['productImages'][0]['imageUrl'] != null &&
-                                              (product['productImages'][0]['imageUrl'] as String).isNotEmpty)
-                                          ? Image.network(
-                                              'http://192.168.1.58:8080${product['productImages'][0]['imageUrl']}',
-                                              fit: BoxFit.cover,
-                                              width: double.infinity,
-                                            )
-                                          : Container(
-                                              color: Colors.grey[300],
-                                              child: const Icon(Icons.image_not_supported),
-                                            ),
+                                      child:
+                                          (product['productImages'] != null &&
+                                                  product['productImages']
+                                                      is List &&
+                                                  product['productImages']
+                                                      .isNotEmpty &&
+                                                  product['productImages'][0]
+                                                      is Map &&
+                                                  product['productImages'][0]
+                                                          ['imageUrl'] !=
+                                                      null &&
+                                                  (product['productImages']
+                                                              [0]['imageUrl']
+                                                          as String)
+                                                      .isNotEmpty)
+                                              ? Image.network(
+                                                  '$baseUrl${product['productImages'][0]['imageUrl']}',
+                                                  fit: BoxFit.cover,
+                                                  width: double.infinity,
+                                                )
+                                              : Container(
+                                                  color: Colors.grey[300],
+                                                  child: const Icon(Icons
+                                                      .image_not_supported),
+                                                ),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.all(8.0),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             product['name'] ?? 'No Name',
@@ -477,9 +499,11 @@ class _ProductPageState extends State<ProductPage> {
                                           SizedBox(
                                             width: double.infinity,
                                             child: ElevatedButton.icon(
-                                              icon: const Icon(Icons.shopping_cart),
+                                              icon: const Icon(
+                                                  Icons.shopping_cart),
                                               label: const Text('Thêm vào giỏ'),
-                                              onPressed: () => _showAddToCartDialog(product),
+                                              onPressed: () =>
+                                                  _showAddToCartDialog(product),
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor: Colors.blue,
                                                 foregroundColor: Colors.white,
@@ -500,4 +524,4 @@ class _ProductPageState extends State<ProductPage> {
             ),
     );
   }
-} 
+}

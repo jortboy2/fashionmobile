@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'network_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.58:8080/api'; // Replace with your actual API URL
+  static const String baseUrl = NetworkService.defaultIp;
 
   // Get all products
   Future<List<dynamic>> getProducts() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/products'));
+      final response = await http.get(Uri.parse('$baseUrl/api/products'));
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
@@ -21,7 +22,7 @@ class ApiService {
   // Get product by ID
   Future<Map<String, dynamic>> getProductById(int id) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/products/$id'));
+      final response = await http.get(Uri.parse('$baseUrl/api/products/$id'));
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
@@ -35,7 +36,7 @@ class ApiService {
   // Get all categories
   Future<List<dynamic>> getCategories() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/categories'));
+      final response = await http.get(Uri.parse('$baseUrl/api/categories'));
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
@@ -48,7 +49,7 @@ class ApiService {
 
   // Register user
   Future<bool> registerUser(String username, String email, String password) async {
-    final url = Uri.parse('$baseUrl/users/register');
+    final url = Uri.parse('$baseUrl/api/users/register');
     final response = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},
@@ -67,7 +68,7 @@ class ApiService {
 
   // Login user
   Future<Map<String, dynamic>> loginUser(String username, String password) async {
-    final url = Uri.parse('$baseUrl/users/login');
+    final url = Uri.parse('$baseUrl/api/users/login');
     final response = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},
@@ -86,7 +87,7 @@ class ApiService {
   Future<List<dynamic>> getProductsByCategory(int categoryId) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/products/category/$categoryId'),
+        Uri.parse('$baseUrl/api/products/category/$categoryId'),
       );
       
       if (response.statusCode == 200) {

@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/category.dart';
+import 'network_service.dart';
 
 class CategoryService {
-  static const String baseUrl = 'http://192.168.1.58:8080/api'; // Replace with your actual API base URL
+  static const String baseUrl = NetworkService.defaultIp;
 
   static Future<List<Category>> getCategories() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/categories'));
+      final response = await http.get(Uri.parse('$baseUrl/api/categories'));
       
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);

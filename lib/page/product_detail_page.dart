@@ -1,3 +1,4 @@
+import 'package:fashionmobile/services/network_service.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import '../services/api_service.dart';
@@ -14,6 +15,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   final ApiService _apiService = ApiService();
   Map<String, dynamic>? _product;
   bool _isLoading = true;
+  static const String baseUrl = NetworkService.defaultIp;
 
   @override
   void initState() {
@@ -179,7 +181,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       ),
       items: images.map<Widget>((img) {
         return Image.network(
-          'http://192.168.1.58:8080${img['imageUrl']}',
+          '$baseUrl${img['imageUrl']}',
           width: double.infinity,
           height: 320,
           fit: BoxFit.cover,
