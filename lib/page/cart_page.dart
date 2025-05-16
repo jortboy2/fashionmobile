@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
+import 'payment_screen.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({Key? key}) : super(key: key);
@@ -263,10 +264,10 @@ class _CartPageState extends State<CartPage> {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () {
-                            // TODO: Implement checkout
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Chức năng thanh toán đang được phát triển'),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const PaymentScreen(),
                               ),
                             );
                           },
