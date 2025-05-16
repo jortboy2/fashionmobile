@@ -1,6 +1,9 @@
+import 'package:fashionmobile/services/network_service.dart';
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import 'payment_screen.dart';
+import '../services/auth_service.dart';
+import '../main.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({Key? key}) : super(key: key);
@@ -9,17 +12,47 @@ class CartPage extends StatefulWidget {
   State<CartPage> createState() => _CartPageState();
 }
 
-class _CartPageState extends State<CartPage> {
+class _CartPageState extends State<CartPage> with RouteAware {
+  static const String baseUrl = NetworkService.defaultIp;
+
   @override
   void initState() {
     super.initState();
-    CartService.initCart();
+    CartService.initCart().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)! as PageRoute);
+
+    // Gọi lại mỗi lần dependencies thay đổi
+    CartService.initCart().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Called when quay lại CartPage
+    CartService.initCart().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final cartItems = CartService.cartItems;
     final totalPrice = CartService.totalPrice;
+    print('Cart Items: ${CartService.cartItems}');
 
     return Scaffold(
       appBar: AppBar(
@@ -34,7 +67,8 @@ class _CartPageState extends State<CartPage> {
                   context: context,
                   builder: (context) => AlertDialog(
                     title: const Text('Xóa giỏ hàng'),
-                    content: const Text('Bạn có chắc muốn xóa tất cả sản phẩm trong giỏ hàng?'),
+                    content: const Text(
+                        'Bạn có chắc muốn xóa tất cả sản phẩm trong giỏ hàng?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
@@ -78,7 +112,7 @@ class _CartPageState extends State<CartPage> {
                   const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/products', arguments: 1);
                     },
                     child: const Text('Tiếp tục mua sắm'),
                   ),
@@ -110,10 +144,14 @@ class _CartPageState extends State<CartPage> {
                                         product['productImages'] is List &&
                                         product['productImages'].isNotEmpty &&
                                         product['productImages'][0] is Map &&
-                                        product['productImages'][0]['imageUrl'] != null &&
-                                        (product['productImages'][0]['imageUrl'] as String).isNotEmpty)
+                                        product['productImages'][0]
+                                                ['imageUrl'] !=
+                                            null &&
+                                        (product['productImages'][0]['imageUrl']
+                                                as String)
+                                            .isNotEmpty)
                                     ? Image.network(
-                                        'http://192.168.1.58:8080${product['productImages'][0]['imageUrl']}',
+                                        '$baseUrl${product['productImages'][0]['imageUrl']}',
                                         width: 80,
                                         height: 80,
                                         fit: BoxFit.cover,
@@ -122,7 +160,8 @@ class _CartPageState extends State<CartPage> {
                                         width: 80,
                                         height: 80,
                                         color: Colors.grey[300],
-                                        child: const Icon(Icons.image_not_supported),
+                                        child: const Icon(
+                                            Icons.image_not_supported),
                                       ),
                               ),
                               const SizedBox(width: 16),
@@ -167,7 +206,8 @@ class _CartPageState extends State<CartPage> {
                                         icon: const Icon(Icons.remove),
                                         onPressed: quantity > 1
                                             ? () async {
-                                                await CartService.updateQuantity(
+                                                await CartService
+                                                    .updateQuantity(
                                                   product['id'],
                                                   size,
                                                   quantity - 1,
@@ -264,6 +304,11 @@ class _CartPageState extends State<CartPage> {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () {
+                            if (!AuthService.isLoggedIn ||
+                                AuthService.currentUser == null) {
+                              Navigator.pushNamed(context, '/login');
+                              return;
+                            }
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -289,4 +334,4 @@ class _CartPageState extends State<CartPage> {
             ),
     );
   }
-} 
+}

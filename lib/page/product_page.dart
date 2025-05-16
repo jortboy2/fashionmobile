@@ -5,11 +5,11 @@ import '../models/category.dart';
 import '../services/cart_service.dart';
 
 class ProductPage extends StatefulWidget {
-  final int categoryId;
+  final int? categoryId;
 
   const ProductPage({
     Key? key,
-    required this.categoryId,
+    this.categoryId,
   }) : super(key: key);
 
   @override
@@ -31,19 +31,28 @@ class _ProductPageState extends State<ProductPage> {
   void initState() {
     super.initState();
     _loadData();
+
     CartService.initCart();
   }
 
   Future<void> _loadData() async {
     try {
       final categories = await _apiService.getCategories();
-      final products =
-          await _apiService.getProductsByCategory(widget.categoryId);
+      List<dynamic> products;
+      if (widget.categoryId == null) {
+        products = await _apiService.getProducts();
+      } else {
+        products = await _apiService.getProductsByCategory(widget.categoryId!);
+      }
 
       setState(() {
         _categories = categories.map((c) => Category.fromJson(c)).toList();
-        _selectedCategory =
-            _categories.firstWhere((c) => c.id == widget.categoryId);
+        _selectedCategory = (widget.categoryId != null)
+            ? _categories.firstWhere(
+                (c) => c.id == widget.categoryId,
+                orElse: () => Category(id: -1, name: 'Không xác định'),
+              )
+            : null;
         _products = products;
         _filteredProducts = products;
         _isLoading = false;
@@ -60,44 +69,43 @@ class _ProductPageState extends State<ProductPage> {
   }
 
   void _applyFilters() {
-    setState(() {
-      _filteredProducts = _products.where((product) {
-        // Category filter
-        if (_selectedCategory != null) {
-          final productCategory = product['category'];
-          if (productCategory == null ||
-              productCategory['id'] == null ||
-              productCategory['id'] != _selectedCategory!.id) {
-            return false;
-          }
-        }
-
-        // Price range filter
-        final price = product['price'] ?? 0;
-        if (price < _priceRange.start || price > _priceRange.end) {
+  setState(() {
+    _filteredProducts = _products.where((product) {
+      // Category filter
+      if (_selectedCategory != null) {
+        final productCategory = product['category'];
+        final productCategoryId = productCategory != null ? productCategory['id'] : null;
+        if (productCategoryId == null || productCategoryId != _selectedCategory!.id) {
           return false;
         }
+      }
 
-        return true;
-      }).toList();
+      // Price range filter
+      final price = product['price'] ?? 0;
+      if (price < _priceRange.start || price > _priceRange.end) {
+        return false;
+      }
 
-      // Apply sorting
-      _filteredProducts.sort((a, b) {
-        switch (_sortBy) {
-          case 'name':
-            return (a['name'] ?? '').compareTo(b['name'] ?? '');
-          case 'price_asc':
-            return ((a['price'] ?? 0) as num)
-                .compareTo((b['price'] ?? 0) as num);
-          case 'price_desc':
-            return ((b['price'] ?? 0) as num)
-                .compareTo((a['price'] ?? 0) as num);
-          default:
-            return 0;
-        }
-      });
+      return true;
+    }).toList();
+
+    // Sorting
+    _filteredProducts.sort((a, b) {
+      switch (_sortBy) {
+        case 'name':
+          return (a['name'] ?? '').compareTo(b['name'] ?? '');
+        case 'price_asc':
+          return ((a['price'] ?? 0) as num)
+              .compareTo((b['price'] ?? 0) as num);
+        case 'price_desc':
+          return ((b['price'] ?? 0) as num)
+              .compareTo((a['price'] ?? 0) as num);
+        default:
+          return 0;
+      }
     });
-  }
+  });
+}
 
   void _showAddToCartDialog(Map<String, dynamic> product) {
     String selectedSize = '';

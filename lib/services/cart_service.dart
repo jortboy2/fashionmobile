@@ -14,6 +14,8 @@ class CartService {
     final cartJson = prefs.getString(_cartKey);
     if (cartJson != null) {
       _cartItems = List<Map<String, dynamic>>.from(json.decode(cartJson));
+    } else {
+      _cartItems = [];
     }
   }
 

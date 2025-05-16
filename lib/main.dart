@@ -7,6 +7,8 @@ import 'package:fashionmobile/page/register_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
 void main() {
   runApp(DevicePreview(
     enabled: !kReleaseMode,
@@ -27,6 +29,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
+      navigatorObservers: [routeObserver],
       initialRoute: '/',
       routes: {
         '/': (context) => const HomePage(),

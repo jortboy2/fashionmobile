@@ -128,7 +128,15 @@ class _HomeContentState extends State<HomeContent> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.shopping_cart),
-                        onPressed: () {},
+                        onPressed: () {
+                          // Navigator.pushNamed(context, '/cart');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CartPage(),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

@@ -3,11 +3,9 @@ import 'package:http/http.dart' as http;
 import 'network_service.dart';
 
 class ApiService {
-<<<<<<< HEAD
+ 
   static const String baseUrl = NetworkService.defaultIp;
-=======
-  static const String baseUrl = 'http://192.168.10.142:8080/api'; // Replace with your actual API URL
->>>>>>> 5f98efe531bca71bb2778bb7efc0e14bdbbab7b0
+
 
   // Get all products
   Future<List<dynamic>> getProducts() async {

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
+import '../services/order_service.dart';
+import '../services/size_service.dart';
+import '../services/auth_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -13,6 +16,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _emailController = TextEditingController();
   String _selectedPaymentMethod = 'cod'; // Default to COD
   bool _isProcessing = false;
 
@@ -30,8 +34,46 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     try {
-      // TODO: Implement actual payment processing with your backend
-      await Future.delayed(const Duration(seconds: 2)); // Simulate API call
+      // Lấy danh sách size từ API
+      final sizes = await SizeService.getAllSizes();
+
+      // Map order items, đảm bảo có sizeId
+      final orderItems = CartService.cartItems.map((item) {
+        int? sizeId = item['sizeId'];
+        if (sizeId == null && item['size'] != null) {
+          final found = sizes.firstWhere(
+            (s) => s['name'] == item['size'],
+            orElse: () => {},
+          );
+          sizeId = found != null ? found['id'] : null;
+        }
+        if (sizeId == null) throw Exception('Không tìm thấy sizeId cho sản phẩm ${item['product']['name']}');
+        return {
+          'productId': item['product']['id'],
+          'quantity': item['quantity'],
+          'price': item['product']['price'],
+          'sizeId': sizeId,
+        };
+      }).toList();
+
+      // Lấy userId từ user đã đăng nhập
+      final userId = AuthService.currentUser != null ? AuthService.currentUser!['id'] : null;
+      if (userId == null) {
+        throw Exception('Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.');
+      }
+      await OrderService.createOrder(
+        userId: userId,
+        total: CartService.totalPrice,
+        status: 'Chua thanh toán',
+        paymentStatus: _selectedPaymentMethod == 'cod' 
+            ? 'Thanh toán khi nhận hàng' 
+            : 'Chờ thanh toán VNPay',
+        receiverName: _nameController.text,
+        receiverEmail: _emailController.text,
+        receiverPhone: _phoneController.text,
+        receiverAddress: _addressController.text,
+        orderItems: orderItems,
+      );
 
       if (_selectedPaymentMethod == 'cod') {
         // For COD, just clear the cart and show success message
@@ -80,6 +122,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -148,6 +191,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Vui lòng nhập họ và tên';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Vui lòng nhập email';
+                  }
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    return 'Vui lòng nhập email hợp lệ';
                   }
                   return null;
                 },
