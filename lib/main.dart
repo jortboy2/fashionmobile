@@ -27,13 +27,15 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      initialRoute: '/login',
+      initialRoute: '/',
       routes: {
         '/': (context) => const HomePage(),
-        '/products': (context) => const ProductPage(),
-        '/product-detail': (context) => const ProductDetailPage(),
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
+        '/product-detail': (context) => const ProductDetailPage(),
+        '/products': (context) => ProductPage(
+              categoryId: ModalRoute.of(context)!.settings.arguments as int,
+            ),
       },
     );
   }

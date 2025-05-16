@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import '../services/api_service.dart';
+import '../services/cart_service.dart';
 
 class ProductDetailPage extends StatefulWidget {
   const ProductDetailPage({Key? key}) : super(key: key);
@@ -13,6 +14,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   final ApiService _apiService = ApiService();
   Map<String, dynamic>? _product;
   bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    CartService.initCart();
+  }
 
   @override
   void didChangeDependencies() {
@@ -35,6 +42,117 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading product: $e')),
       );
+    }
+  }
+
+  void _showAddToCartDialog() {
+    String selectedSize = '';
+    int quantity = 1;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Chọn size và số lượng'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Size Selection
+              if (_product!['productSizes'] != null && _product!['productSizes'].isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Size:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: (_product!['productSizes'] as List).map((sizeData) {
+                        final sizeId = sizeData['id']['sizeId'];
+                        final stock = sizeData['stock'];
+                        final size = _getSizeName(sizeId);
+                        return ChoiceChip(
+                          label: Text('$size (${stock} còn)'),
+                          selected: selectedSize == size,
+                          onSelected: stock > 0
+                              ? (selected) {
+                                  if (selected) {
+                                    setState(() => selectedSize = size);
+                                  }
+                                }
+                              : null,
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+
+              const SizedBox(height: 16),
+
+              // Quantity Selection
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove),
+                    onPressed: quantity > 1
+                        ? () => setState(() => quantity--)
+                        : null,
+                  ),
+                  Text(
+                    quantity.toString(),
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () => setState(() => quantity++),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: selectedSize.isEmpty
+                  ? null
+                  : () async {
+                      await CartService.addToCart(_product!, selectedSize, quantity);
+                      if (mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Đã thêm vào giỏ hàng'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+              child: const Text('Thêm vào giỏ'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getSizeName(int sizeId) {
+    switch (sizeId) {
+      case 1:
+        return 'S';
+      case 2:
+        return 'M';
+      case 3:
+        return 'L';
+      case 4:
+        return 'XL';
+      default:
+        return 'Unknown';
     }
   }
 
@@ -80,6 +198,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_product?['name'] ?? 'Product Detail'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart),
+            onPressed: () {
+              Navigator.pushNamed(context, '/cart');
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -164,13 +290,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   Expanded(
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.add_shopping_cart),
-                      label: const Text('Add to Cart', style: TextStyle(fontSize: 16)),
-                      onPressed: () {
-                        // TODO: Thêm logic thêm vào giỏ hàng ở đây
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Đã thêm vào giỏ hàng!')),
-                        );
-                      },
+                      label: const Text('Thêm vào giỏ', style: TextStyle(fontSize: 16)),
+                      onPressed: _showAddToCartDialog,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
@@ -184,7 +305,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
-                      child: const Text('Buy Now', style: TextStyle(fontSize: 16)),
+                      child: const Text('Mua ngay', style: TextStyle(fontSize: 16)),
                       onPressed: () {
                         // TODO: Thêm logic mua ngay ở đây
                         ScaffoldMessenger.of(context).showSnackBar(

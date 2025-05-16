@@ -82,4 +82,21 @@ class ApiService {
       throw Exception('Đăng nhập thất bại: ${response.body}');
     }
   }
+
+  Future<List<dynamic>> getProductsByCategory(int categoryId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/products/category/$categoryId'),
+      );
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data;
+      } else {
+        throw Exception('Failed to load products');
+      }
+    } catch (e) {
+      throw Exception('Error fetching products: $e');
+    }
+  }
 } 
