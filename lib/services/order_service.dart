@@ -44,4 +44,24 @@ class OrderService {
       throw Exception('Error creating order: $e');
     }
   }
+
+  static Future<List<Map<String, dynamic>>> getUserOrders(int userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/orders/user/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> orders = jsonDecode(response.body);
+        return orders.cast<Map<String, dynamic>>();
+      } else {
+        throw Exception('Failed to load orders: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Error loading orders: $e');
+    }
+  }
 } 

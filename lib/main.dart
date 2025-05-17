@@ -4,6 +4,7 @@ import 'package:fashionmobile/page/product_page.dart';
 import 'package:fashionmobile/page/product_detail_page.dart';
 import 'package:fashionmobile/page/login_page.dart';
 import 'package:fashionmobile/page/register_page.dart';
+import 'package:fashionmobile/page/orders_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -39,6 +40,7 @@ class MyApp extends StatelessWidget {
         '/products': (context) => ProductPage(
               categoryId: ModalRoute.of(context)!.settings.arguments as int,
             ),
+        '/orders': (context) => const OrdersPage(),
       },
     );
   }

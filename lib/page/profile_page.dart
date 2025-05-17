@@ -37,23 +37,28 @@ class ProfilePage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Đăng xuất', style: TextStyle(fontSize: 18)),
-                      onPressed: () {
-                        AuthService.logout();
-                        Navigator.pushReplacementNamed(context, '/login');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/orders');
+                    },
+                    icon: const Icon(Icons.shopping_bag),
+                    label: const Text('Xem đơn hàng của tôi'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      AuthService.logout();
+                      Navigator.pushReplacementNamed(context, '/login');
+                    },
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Đăng xuất'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
                     ),
                   ),
                 ],

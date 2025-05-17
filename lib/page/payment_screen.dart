@@ -3,6 +3,8 @@ import '../services/cart_service.dart';
 import '../services/order_service.dart';
 import '../services/size_service.dart';
 import '../services/auth_service.dart';
+import '../services/payment_service.dart';
+import 'payment_success_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -24,6 +26,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
   void initState() {
     super.initState();
     CartService.initCart();
+    _prefillUserData();
+  }
+
+  void _prefillUserData() {
+    final currentUser = AuthService.currentUser;
+    if (currentUser != null) {
+      _nameController.text = currentUser['name'] ?? '';
+      _emailController.text = currentUser['email'] ?? '';
+      _phoneController.text = currentUser['phone'] ?? '';
+    }
   }
 
   Future<void> _processPayment() async {
@@ -39,15 +51,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       // Map order items, đảm bảo có sizeId
       final orderItems = CartService.cartItems.map((item) {
-        int? sizeId = item['sizeId'];
-        if (sizeId == null && item['size'] != null) {
-          final found = sizes.firstWhere(
-            (s) => s['name'] == item['size'],
-            orElse: () => {},
-          );
-          sizeId = found != null ? found['id'] : null;
+        // Sử dụng sizeId đã lưu trong cart
+        final sizeId = item['sizeId'];
+        if (sizeId == null) {
+          throw Exception('Không tìm thấy sizeId cho sản phẩm ${item['product']['name']} với size ${item['size']}');
         }
-        if (sizeId == null) throw Exception('Không tìm thấy sizeId cho sản phẩm ${item['product']['name']}');
+
         return {
           'productId': item['product']['id'],
           'quantity': item['quantity'],
@@ -61,49 +70,89 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (userId == null) {
         throw Exception('Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.');
       }
-      await OrderService.createOrder(
-        userId: userId,
-        total: CartService.totalPrice,
-        status: 'Chua thanh toán',
-        paymentStatus: _selectedPaymentMethod == 'cod' 
+
+      // Tạo order data theo format API
+      final orderData = {
+        'userId': userId,
+        'total': CartService.totalPrice,
+        'status': 'Chờ xác nhận',
+        'paymentStatus': _selectedPaymentMethod == 'cod' 
             ? 'Thanh toán khi nhận hàng' 
-            : 'Chờ thanh toán VNPay',
-        receiverName: _nameController.text,
-        receiverEmail: _emailController.text,
-        receiverPhone: _phoneController.text,
-        receiverAddress: _addressController.text,
-        orderItems: orderItems,
-      );
+            : 'vnpay',
+        'receiverName': _nameController.text,
+        'receiverEmail': _emailController.text,
+        'receiverPhone': _phoneController.text,
+        'receiverAddress': _addressController.text,
+        'orderItems': orderItems,
+      };
 
       if (_selectedPaymentMethod == 'cod') {
-        // For COD, just clear the cart and show success message
+        // For COD, create order and show success screen
+        final orderResponse = await OrderService.createOrder(
+          userId: userId,
+          total: CartService.totalPrice,
+          status: 'Chờ xác nhận',
+          paymentStatus: 'Thanh toán khi nhận hàng',
+          receiverName: _nameController.text,
+          receiverEmail: _emailController.text,
+          receiverPhone: _phoneController.text,
+          receiverAddress: _addressController.text,
+          orderItems: orderItems,
+        );
+
+        // Clear the cart
         await CartService.clearCart();
+        
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đặt hàng thành công! Bạn sẽ thanh toán khi nhận hàng.'),
-              backgroundColor: Colors.green,
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PaymentSuccessScreen(
+                orderData: orderResponse,
+              ),
             ),
           );
-          Navigator.of(context).popUntil((route) => route.isFirst);
         }
       } else {
-        // For VNPay, show redirect message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đang chuyển hướng đến VNPay...'),
-              backgroundColor: Colors.blue,
-            ),
+        // For VNPay
+        try {
+          final paymentUrl = await PaymentService.createVNPayPayment(
+            orderData: orderData,
+            voucherCode: CartService.appliedVoucher?['code'],
+            userId: userId,
           );
-          // TODO: Implement VNPay integration
+
+          // Clear cart before redirecting
+          await CartService.clearCart();
+
+          // Launch VNPay payment URL
+          await PaymentService.launchPaymentUrl(paymentUrl);
+
+          // Navigate to payment success screen
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PaymentSuccessScreen(),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Lỗi thanh toán VNPay: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Có lỗi xảy ra: ${e.toString()}'),
+            content: Text('Lỗi: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -130,12 +179,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Thanh Toán'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
+        title: const Text('Thanh toán'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(
@@ -190,7 +237,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Vui lòng nhập họ và tên';
+                    return 'Vui lòng nhập họ tên';
                   }
                   return null;
                 },
@@ -202,13 +249,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   labelText: 'Email',
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Vui lòng nhập email';
                   }
-                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                    return 'Vui lòng nhập email hợp lệ';
+                  if (!value.contains('@')) {
+                    return 'Email không hợp lệ';
                   }
                   return null;
                 },
@@ -220,7 +266,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   labelText: 'Số điện thoại',
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: TextInputType.phone,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Vui lòng nhập số điện thoại';
@@ -232,13 +277,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
               TextFormField(
                 controller: _addressController,
                 decoration: const InputDecoration(
-                  labelText: 'Địa chỉ giao hàng',
+                  labelText: 'Địa chỉ',
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 3,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Vui lòng nhập địa chỉ giao hàng';
+                    return 'Vui lòng nhập địa chỉ';
                   }
                   return null;
                 },
@@ -280,27 +325,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              // Payment Button
               SizedBox(
                 width: double.infinity,
-                height: 50,
                 child: ElevatedButton(
                   onPressed: _isProcessing ? null : _processPayment,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
                   ),
                   child: _isProcessing
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
+                      ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
-                          'Đặt hàng',
+                          'Thanh toán',
                           style: TextStyle(fontSize: 16),
                         ),
                 ),
@@ -314,24 +354,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Widget _buildOrderItem(String label, String value, {bool isTotal = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: isTotal ? 18 : 16,
-                fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 16 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
             ),
           ),
           Text(
             value,
             style: TextStyle(
-              fontSize: isTotal ? 18 : 16,
+              fontSize: isTotal ? 16 : 14,
               fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: isTotal ? Colors.green : Colors.black,
             ),
           ),
         ],

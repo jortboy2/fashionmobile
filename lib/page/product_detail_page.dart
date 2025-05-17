@@ -124,7 +124,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               onPressed: selectedSize.isEmpty
                   ? null
                   : () async {
-                      await CartService.addToCart(_product!, selectedSize, quantity);
+                      // Tìm sizeId từ productSizes
+                      final sizeData = (_product!['productSizes'] as List).firstWhere(
+                        (size) => _getSizeName(size['id']['sizeId']) == selectedSize,
+                      );
+                      final sizeId = sizeData['id']['sizeId'];
+
+                      await CartService.addToCart(_product!, selectedSize, quantity, sizeId);
                       if (mounted) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
