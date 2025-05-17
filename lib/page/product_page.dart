@@ -185,22 +185,57 @@ class _ProductPageState extends State<ProductPage> {
               onPressed: selectedSize.isEmpty
                   ? null
                   : () async {
-                      // Tìm sizeId từ productSizes
-                      final sizeData = (product['productSizes'] as List).firstWhere(
-                        (size) => _getSizeName(size['id']['sizeId']) == selectedSize,
-                      );
-                      final sizeId = sizeData['id']['sizeId'];
-                      
-                      await CartService.addToCart(
-                          product, selectedSize, quantity, sizeId);
-                      if (mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Đã thêm vào giỏ hàng'),
-                            duration: Duration(seconds: 2),
-                          ),
+                      try {
+                        // Tìm sizeId từ productSizes
+                        final sizeData = (product['productSizes'] as List).firstWhere(
+                          (size) => _getSizeName(size['id']['sizeId']) == selectedSize,
                         );
+                        final sizeId = sizeData['id']['sizeId'];
+                        
+                        await CartService.addToCart(
+                            product, selectedSize, quantity, sizeId);
+                        if (mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Đã thêm vào giỏ hàng'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          Navigator.pop(context);
+                          if (e.toString().contains('User not logged in')) {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Yêu cầu đăng nhập'),
+                                content: const Text('Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Hủy'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      Navigator.pushNamed(context, '/login');
+                                    },
+                                    child: const Text('Đăng nhập ngay'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Lỗi: ${e.toString()}'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        }
                       }
                     },
               child: const Text('Thêm vào giỏ'),
