@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'lucky_wheel.dart';
+import 'user_vouchers.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({Key? key}) : super(key: key);
+
+  void _showLuckyWheel(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => LuckyWheel(
+        userId: AuthService.currentUser?['id'] ?? 0,
+        onClose: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +57,33 @@ class ProfilePage extends StatelessWidget {
                     label: const Text('Xem đơn hàng của tôi'),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 48),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => _showLuckyWheel(context),
+                    icon: const Icon(Icons.casino),
+                    label: const Text('Vòng quay may mắn'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      backgroundColor: Colors.purple,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const UserVouchersPage()),
+                      );
+                    },
+                    icon: const Icon(Icons.card_giftcard),
+                    label: const Text('Mã giảm giá của tôi'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 16),
