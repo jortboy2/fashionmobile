@@ -19,7 +19,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _emailController = TextEditingController();
-  String _selectedPaymentMethod = 'cod'; // Default to COD
+  String _selectedPaymentMethod = 'cash'; // Default to cash
   bool _isProcessing = false;
 
   @override
@@ -76,9 +76,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'userId': userId,
         'total': CartService.totalPrice,
         'status': 'Chờ xác nhận',
-        'paymentStatus': _selectedPaymentMethod == 'cod' 
-            ? 'Thanh toán khi nhận hàng' 
-            : 'vnpay',
+        'paymentStatus': _selectedPaymentMethod == 'cash' 
+            ? 'Chưa thanh toán' 
+            : 'Chờ thanh toán',
+        'paymentMethod': _selectedPaymentMethod,
         'receiverName': _nameController.text,
         'receiverEmail': _emailController.text,
         'receiverPhone': _phoneController.text,
@@ -86,13 +87,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'orderItems': orderItems,
       };
 
-      if (_selectedPaymentMethod == 'cod') {
-        // For COD, create order and show success screen
+      if (_selectedPaymentMethod == 'cash') {
+        // For cash payment, create order and show success screen
         final orderResponse = await OrderService.createOrder(
           userId: userId,
           total: CartService.totalPrice,
           status: 'Chờ xác nhận',
-          paymentStatus: 'Thanh toán khi nhận hàng',
+          paymentStatus: 'Chưa thanh toán',
+          paymentMethod: 'cash',
           receiverName: _nameController.text,
           receiverEmail: _emailController.text,
           receiverPhone: _phoneController.text,
@@ -113,7 +115,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           );
         }
-      } else {
+      } else if (_selectedPaymentMethod == 'vnpay') {
         // For VNPay
         try {
           final paymentUrl = await PaymentService.createVNPayPayment(
@@ -303,8 +305,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 child: Column(
                   children: [
                     RadioListTile<String>(
-                      title: const Text('Thanh toán khi nhận hàng (COD)'),
-                      value: 'cod',
+                      title: const Text('Thanh toán tiền mặt'),
+                      value: 'cash',
                       groupValue: _selectedPaymentMethod,
                       onChanged: (value) {
                         setState(() {

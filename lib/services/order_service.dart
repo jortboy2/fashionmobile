@@ -10,6 +10,7 @@ class OrderService {
     required double total,
     required String status,
     required String paymentStatus,
+    required String paymentMethod,
     required String receiverName,
     required String receiverEmail,
     required String receiverPhone,
@@ -27,6 +28,7 @@ class OrderService {
           'total': total,
           'status': status,
           'paymentStatus': paymentStatus,
+          'paymentMethod': paymentMethod,
           'receiverName': receiverName,
           'receiverEmail': receiverEmail,
           'receiverPhone': receiverPhone,
@@ -35,13 +37,14 @@ class OrderService {
         }),
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Failed to create order: ${response.body}');
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final errorData = jsonDecode(response.body);
+        throw Exception('Không thể tạo đơn hàng: ${errorData['message'] ?? response.body}');
       }
+
+      return jsonDecode(response.body);
     } catch (e) {
-      throw Exception('Error creating order: $e');
+      throw Exception('Lỗi tạo đơn hàng: $e');
     }
   }
 
