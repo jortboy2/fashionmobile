@@ -353,7 +353,7 @@ class _LuckyWheelState extends State<LuckyWheel>
                     _selectedPrize!.value ?? '!',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 24,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

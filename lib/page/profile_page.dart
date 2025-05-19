@@ -20,89 +20,180 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = AuthService.currentUser;
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
       body: user == null
           ? const Center(child: Text('Bạn chưa đăng nhập!'))
-          : Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 32),
-                  const Text('Thông tin tài khoản', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 32),
-                  Row(
+          : Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.purple.shade100,
+                    Colors.white,
+                  ],
+                ),
+              ),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  child: Column(
                     children: [
-                      const Icon(Icons.person, size: 28),
-                      const SizedBox(width: 12),
-                      Text('Username: ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-                      Text(user['username'] ?? '', style: const TextStyle(fontSize: 18)),
+                      const SizedBox(height: 20),
+                      // Profile Header
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.purple.shade300,
+                                  width: 2,
+                                ),
+                              ),
+                              child: CircleAvatar(
+                                radius: 50,
+                                backgroundColor: Colors.purple.shade100,
+                                child: Icon(
+                                  Icons.person,
+                                  size: 50,
+                                  color: Colors.purple.shade300,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              user['username'] ?? '',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              user['email'] ?? '',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Profile Actions
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          children: [
+                            _buildActionButton(
+                              context,
+                              icon: Icons.shopping_bag,
+                              label: 'Xem đơn hàng của tôi',
+                              color: Colors.blue,
+                              onTap: () => Navigator.pushNamed(context, '/orders'),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildActionButton(
+                              context,
+                              icon: Icons.casino,
+                              label: 'Vòng quay may mắn',
+                              color: Colors.purple,
+                              onTap: () => _showLuckyWheel(context),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildActionButton(
+                              context,
+                              icon: Icons.card_giftcard,
+                              label: 'Mã giảm giá của tôi',
+                              color: Colors.green,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const UserVouchersPage()),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _buildActionButton(
+                              context,
+                              icon: Icons.logout,
+                              label: 'Đăng xuất',
+                              color: Colors.red,
+                              onTap: () {
+                                AuthService.logout();
+                                Navigator.pushReplacementNamed(context, '/login');
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      const Icon(Icons.email, size: 28),
-                      const SizedBox(width: 12),
-                      Text('Email: ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-                      Text(user['email'] ?? '', style: const TextStyle(fontSize: 18)),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/orders');
-                    },
-                    icon: const Icon(Icons.shopping_bag),
-                    label: const Text('Xem đơn hàng của tôi'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => _showLuckyWheel(context),
-                    icon: const Icon(Icons.casino),
-                    label: const Text('Vòng quay may mắn'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                      backgroundColor: Colors.purple,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const UserVouchersPage()),
-                      );
-                    },
-                    icon: const Icon(Icons.card_giftcard),
-                    label: const Text('Mã giảm giá của tôi'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      AuthService.logout();
-                      Navigator.pushReplacementNamed(context, '/login');
-                    },
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Đăng xuất'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(15),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  color,
+                  color.withOpacity(0.8),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: Colors.white, size: 24),
+                const SizedBox(width: 16),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Spacer(),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 } 
