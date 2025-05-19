@@ -1,3 +1,4 @@
+import 'package:fashionmobile/page/payment_webview.dart';
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import '../services/order_service.dart';
@@ -163,12 +164,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'isUserVoucher': _isUserVoucher,
       };
 
-<<<<<<< HEAD
       if (_selectedPaymentMethod == 'cash') {
         // For cash payment, create order and show success screen
-=======
-      if (_selectedPaymentMethod == 'cod') {
->>>>>>> 013b9a259555f4e5cdefa03405afb5555620ad3d
         final orderResponse = await OrderService.createOrder(
           userId: userId,
           total: _calculateDiscountedTotal(),
@@ -192,25 +189,33 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           );
         }
-<<<<<<< HEAD
       } else if (_selectedPaymentMethod == 'vnpay') {
         // For VNPay
-=======
-      } else {
->>>>>>> 013b9a259555f4e5cdefa03405afb5555620ad3d
         try {
           final paymentUrl = await PaymentService.createVNPayPayment(
-            orderData: orderData,
             voucherCode: _appliedDiscount != null ? _appliedDiscount!['code'] : null,
             userId: userId,
+            orderData: orderData,
           );
           await CartService.clearCart();
-          await PaymentService.launchPaymentUrl(paymentUrl);
+          
           if (mounted) {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const PaymentSuccessScreen(),
+                builder: (context) => PaymentWebView(
+                  paymentUrl: paymentUrl,
+                  onPaymentComplete: (orderData) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PaymentSuccessScreen(
+                          orderData: orderData,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             );
           }
