@@ -24,7 +24,8 @@ class PaymentService {
           'userId': userId,
           'total': orderData['total'],
           'status': 'Chờ xác nhận',
-          'paymentStatus': 'vnpay',
+          'paymentStatus': 'Chờ thanh toán',
+          'paymentMethod': orderData['paymentMethod'] ?? 'vnpay',
           'receiverName': orderData['receiverName'],
           'receiverEmail': orderData['receiverEmail'],
           'receiverPhone': orderData['receiverPhone'],
@@ -48,7 +49,7 @@ class PaymentService {
         body: jsonEncode({
           'amount': orderData['total'],
           'orderInfo': 'Thanh toan don hang #$orderId',
-          'returnUrl': 'fashionmobile://payment/vnpay/return',
+          'returnUrl': 'fashionmobile://payment/vnpay/return/mobile',
         }),
       );
 
