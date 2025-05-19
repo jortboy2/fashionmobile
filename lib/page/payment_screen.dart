@@ -5,6 +5,9 @@ import '../services/size_service.dart';
 import '../services/auth_service.dart';
 import '../services/payment_service.dart';
 import 'payment_success_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../services/network_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -22,6 +25,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String _selectedPaymentMethod = 'cash'; // Default to cash
   bool _isProcessing = false;
 
+  // Discount code
+  final TextEditingController _discountController = TextEditingController();
+  String? _discountError;
+  Map? _appliedDiscount;
+  bool _isUserVoucher = false;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +47,75 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  Future<void> _applyDiscountCode() async {
+    setState(() {
+      _discountError = null;
+      _appliedDiscount = null;
+      _isUserVoucher = false;
+    });
+    final code = _discountController.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _discountError = 'Vui lòng nhập mã giảm giá';
+      });
+      return;
+    }
+    try {
+      // Thử validate mã giảm giá sản phẩm (nếu có API riêng, bạn thay URL cho đúng)
+      final response = await http.get(Uri.parse('${NetworkService.defaultIp}/api/discounts/validate?code=$code'));
+      if (response.statusCode == 200) {
+        setState(() {
+          _appliedDiscount = json.decode(response.body);
+          _isUserVoucher = false;
+          _discountError = null;
+        });
+        return;
+      }
+    } catch (_) {}
+    // Nếu không phải mã sản phẩm, thử voucher cá nhân
+    final user = AuthService.currentUser;
+    if (user != null && user['id'] != null) {
+      try {
+        final voucherRes = await http.get(Uri.parse('${NetworkService.defaultIp}/api/vouchers/use?userId=${user['id']}&code=$code'));
+        if (voucherRes.statusCode == 200) {
+          setState(() {
+            _appliedDiscount = json.decode(voucherRes.body);
+            _isUserVoucher = true;
+            _discountError = null;
+          });
+          return;
+        } else {
+          setState(() {
+            _discountError = utf8.decode(voucherRes.bodyBytes);
+            _appliedDiscount = null;
+          });
+        }
+      } catch (e) {
+        setState(() {
+          _discountError = 'Không thể kiểm tra mã giảm giá. Vui lòng thử lại.';
+          _appliedDiscount = null;
+        });
+      }
+    } else {
+      setState(() {
+        _discountError = 'Bạn cần đăng nhập để sử dụng mã giảm giá cá nhân';
+        _appliedDiscount = null;
+      });
+    }
+  }
+
+  double _calculateDiscountedTotal() {
+    final subtotal = CartService.totalPrice;
+    if (_appliedDiscount == null) return subtotal;
+    final discountType = _appliedDiscount!['discountType'] ?? _appliedDiscount!['discount_type'];
+    final discountValue = _appliedDiscount!['discountValue'] ?? _appliedDiscount!['discount_value'];
+    if (discountType == 'percentage') {
+      return subtotal * (1 - (discountValue / 100));
+    } else {
+      return (subtotal - discountValue).clamp(0, double.infinity);
+    }
+  }
+
   Future<void> _processPayment() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -51,12 +129,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       // Map order items, đảm bảo có sizeId
       final orderItems = CartService.cartItems.map((item) {
-        // Sử dụng sizeId đã lưu trong cart
         final sizeId = item['sizeId'];
         if (sizeId == null) {
           throw Exception('Không tìm thấy sizeId cho sản phẩm ${item['product']['name']} với size ${item['size']}');
         }
-
         return {
           'productId': item['product']['id'],
           'quantity': item['quantity'],
@@ -65,16 +141,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         };
       }).toList();
 
-      // Lấy userId từ user đã đăng nhập
       final userId = AuthService.currentUser != null ? AuthService.currentUser!['id'] : null;
       if (userId == null) {
         throw Exception('Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.');
       }
 
-      // Tạo order data theo format API
       final orderData = {
         'userId': userId,
-        'total': CartService.totalPrice,
+        'total': _calculateDiscountedTotal(),
         'status': 'Chờ xác nhận',
         'paymentStatus': _selectedPaymentMethod == 'cash' 
             ? 'Chưa thanh toán' 
@@ -85,13 +159,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'receiverPhone': _phoneController.text,
         'receiverAddress': _addressController.text,
         'orderItems': orderItems,
+        'discountCode': _appliedDiscount != null ? _appliedDiscount!['code'] : null,
+        'isUserVoucher': _isUserVoucher,
       };
 
+<<<<<<< HEAD
       if (_selectedPaymentMethod == 'cash') {
         // For cash payment, create order and show success screen
+=======
+      if (_selectedPaymentMethod == 'cod') {
+>>>>>>> 013b9a259555f4e5cdefa03405afb5555620ad3d
         final orderResponse = await OrderService.createOrder(
           userId: userId,
-          total: CartService.totalPrice,
+          total: _calculateDiscountedTotal(),
           status: 'Chờ xác nhận',
           paymentStatus: 'Chưa thanh toán',
           paymentMethod: 'cash',
@@ -101,10 +181,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           receiverAddress: _addressController.text,
           orderItems: orderItems,
         );
-
-        // Clear the cart
         await CartService.clearCart();
-        
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -115,22 +192,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           );
         }
+<<<<<<< HEAD
       } else if (_selectedPaymentMethod == 'vnpay') {
         // For VNPay
+=======
+      } else {
+>>>>>>> 013b9a259555f4e5cdefa03405afb5555620ad3d
         try {
           final paymentUrl = await PaymentService.createVNPayPayment(
             orderData: orderData,
-            voucherCode: CartService.appliedVoucher?['code'],
+            voucherCode: _appliedDiscount != null ? _appliedDiscount!['code'] : null,
             userId: userId,
           );
-
-          // Clear cart before redirecting
           await CartService.clearCart();
-
-          // Launch VNPay payment URL
           await PaymentService.launchPaymentUrl(paymentUrl);
-
-          // Navigate to payment success screen
           if (mounted) {
             Navigator.pushReplacement(
               context,
@@ -174,6 +249,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _phoneController.dispose();
     _addressController.dispose();
     _emailController.dispose();
+    _discountController.dispose();
     super.dispose();
   }
 
@@ -211,9 +287,50 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           )),
                       _buildOrderItem('Phí vận chuyển', 'Miễn phí'),
                       const Divider(),
+                      // Discount code UI
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Mã giảm giá', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _discountController,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Nhập mã giảm giá',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  onPressed: _isProcessing ? null : _applyDiscountCode,
+                                  child: const Text('Áp dụng'),
+                                ),
+                              ],
+                            ),
+                            if (_discountError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(_discountError!, style: const TextStyle(color: Colors.red)),
+                              ),
+                            if (_appliedDiscount != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  'Đã áp dụng ${_isUserVoucher ? 'voucher' : 'mã giảm giá'}: ${_appliedDiscount!['code']}',
+                                  style: const TextStyle(color: Colors.green),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const Divider(),
                       _buildOrderItem(
                         'Tổng cộng',
-                        '${CartService.totalPrice.toStringAsFixed(0)}đ',
+                        '${_calculateDiscountedTotal().toStringAsFixed(0)}đ',
                         isTotal: true,
                       ),
                     ],
