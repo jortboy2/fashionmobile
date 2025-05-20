@@ -136,10 +136,9 @@ class PaymentService {
       // Update order status after successful payment
       final orderId = pendingOrder['orderId'];
       final updateResponse = await http.put(
-        Uri.parse('$baseUrl/api/orders/$orderId/status'),
+        Uri.parse('$baseUrl/api/orders/$orderId/status?status=Đã thanh toán'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'status': 'Đã thanh toán',
           'paymentStatus': 'Đã thanh toán',
           'transactionNo': vnpTransactionNo,
         }),
