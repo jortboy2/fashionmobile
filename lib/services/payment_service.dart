@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:fashionmobile/services/network_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class PaymentService {
   static const String baseUrl = NetworkService.defaultIp;
@@ -49,7 +50,9 @@ class PaymentService {
         body: jsonEncode({
           'amount': orderData['total'],
           'orderInfo': 'Thanh toan don hang #$orderId',
-          'returnUrl': 'fashionmobile://payment/vnpay/return/mobile',
+          'returnUrl': kIsWeb 
+              ? '${Uri.base.origin}/payment/vnpay/return/web'  // Web return URL
+              : 'fashionmobile://payment/vnpay/return/mobile', // Mobile return URL
         }),
       );
 

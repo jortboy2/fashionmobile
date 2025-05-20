@@ -5,6 +5,8 @@ import 'package:fashionmobile/page/product_detail_page.dart';
 import 'package:fashionmobile/page/login_page.dart';
 import 'package:fashionmobile/page/register_page.dart';
 import 'package:fashionmobile/page/orders_page.dart';
+import 'package:fashionmobile/page/payment_success_screen.dart';
+import 'package:fashionmobile/services/payment_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -32,6 +34,18 @@ class MyApp extends StatelessWidget {
       ),
       navigatorObservers: [routeObserver],
       initialRoute: '/',
+      onGenerateRoute: (settings) {
+        // Handle VNPay web return URL
+        if (settings.name?.startsWith('/payment/vnpay/return/web') == true) {
+          final uri = Uri.parse(settings.name!);
+          return MaterialPageRoute(
+            builder: (context) => PaymentSuccessScreen(
+              returnUri: uri,
+            ),
+          );
+        }
+        return null;
+      },
       routes: {
         '/': (context) => const HomePage(),
         '/login': (context) => const LoginPage(),
