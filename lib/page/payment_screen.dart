@@ -205,15 +205,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
               MaterialPageRoute(
                 builder: (context) => PaymentWebView(
                   paymentUrl: paymentUrl,
-                  onPaymentComplete: (orderData) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PaymentSuccessScreen(
-                          orderData: orderData,
+                  onPaymentComplete: (response) {
+                    if (response['success'] == true) {
+                      final orderData = response['data'];
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PaymentSuccessScreen(
+                            orderData: orderData,
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(response['message'] ?? 'Thanh toán thất bại'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      Navigator.pop(context); // Quay lại màn hình thanh toán
+                    }
                   },
                 ),
               ),
