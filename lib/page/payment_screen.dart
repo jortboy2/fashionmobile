@@ -42,7 +42,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   void _prefillUserData() {
     final currentUser = AuthService.currentUser;
     if (currentUser != null) {
-      _nameController.text = currentUser['username'] ?? '';
+      _nameController.text = currentUser['usergname'] ?? '';
       _emailController.text = currentUser['email'] ?? '';
       _phoneController.text = currentUser['phone'] ?? '';
     }
