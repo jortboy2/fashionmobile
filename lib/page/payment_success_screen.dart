@@ -42,13 +42,18 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         _isLoading = true;
       });
 
+      print('=== Payment Success Screen ===');
+      print('Handling payment return...');
+
       final order = await PaymentService.handlePaymentReturn(widget.returnUri!);
+      print('Received order data: $order');
       
       setState(() {
         _isLoading = false;
         _orderData = order;
       });
     } catch (e) {
+      print('Error handling payment return: $e');
       setState(() {
         _isLoading = false;
         _orderData = null;

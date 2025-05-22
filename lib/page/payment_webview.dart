@@ -4,6 +4,10 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/payment_service.dart';
+import 'payment_success_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../services/network_service.dart';
 
 class PaymentWebView extends StatefulWidget {
   final String paymentUrl;
@@ -47,8 +51,14 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 // Xử lý kết quả thanh toán
                 final uri = Uri.parse(request.url);
                 PaymentService.handlePaymentReturn(uri).then((orderData) {
-                  widget.onPaymentComplete(orderData);
-                  Navigator.pop(context);
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PaymentSuccessScreen(
+                        orderData: orderData,
+                      ),
+                    ),
+                  );
                 }).catchError((error) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -61,6 +71,37 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 return NavigationDecision.prevent;
               }
               return NavigationDecision.navigate;
+            },
+            onUrlChange: (UrlChange change) {
+              if (change.url != null) {
+                // Kiểm tra nếu URL chứa orderId (trường hợp hủy thanh toán)
+                final uri = Uri.parse(change.url!);
+                final orderId = uri.queryParameters['orderId'];
+                if (orderId != null) {
+                  // Lấy thông tin đơn hàng từ API
+                  http.get(
+                    Uri.parse('${NetworkService.defaultIp}/api/orders/$orderId'),
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                  ).then((orderResponse) {
+                    if (orderResponse.statusCode == 200) {
+                      final responseData = jsonDecode(orderResponse.body);
+                      if (responseData != null && responseData['data'] != null) {
+                        final orderData = responseData['data'];
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PaymentSuccessScreen(
+                              orderData: orderData,
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  });
+                }
+              }
             },
           ),
         )

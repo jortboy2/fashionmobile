@@ -16,7 +16,10 @@ class PaymentService {
     int? userId,
   }) async {
     try {
-      print('Creating VNPay payment with data: ${jsonEncode(orderData)}');
+      print('=== Creating VNPay Payment ===');
+      print('Order Data: ${jsonEncode(orderData)}');
+      print('Voucher Code: $voucherCode');
+      print('User ID: $userId');
       
       // 1. Create order first
       final orderResponse = await http.post(
@@ -36,6 +39,10 @@ class PaymentService {
         }),
       );
 
+      print('=== Order Creation Response ===');
+      print('Status Code: ${orderResponse.statusCode}');
+      print('Response Body: ${orderResponse.body}');
+
       if (orderResponse.statusCode != 200 && orderResponse.statusCode != 201) {
         final errorData = jsonDecode(orderResponse.body);
         throw Exception('Không thể tạo đơn hàng: ${errorData['message'] ?? orderResponse.body}');
@@ -43,9 +50,11 @@ class PaymentService {
 
       final order = jsonDecode(orderResponse.body);
       final orderId = order['id'];
+      print('Created Order ID: $orderId');
 
       // Generate unique transaction ID
       final transactionId = 'ORDER_${orderId}_${DateTime.now().millisecondsSinceEpoch}';
+      print('Transaction ID: $transactionId');
 
       // 2. Create VNPay payment for the order
       final paymentResponse = await http.post(
@@ -61,7 +70,9 @@ class PaymentService {
         }),
       );
 
-      print('VNPay payment response: ${paymentResponse.body}');
+      print('=== VNPay Payment Response ===');
+      print('Status Code: ${paymentResponse.statusCode}');
+      print('Response Body: ${paymentResponse.body}');
 
       if (paymentResponse.statusCode != 200) {
         final errorData = jsonDecode(paymentResponse.body);
@@ -77,24 +88,11 @@ class PaymentService {
         throw Exception('Không nhận được URL thanh toán từ VNPay');
       }
 
-      // 3. Store order data for later use
-      final prefs = await SharedPreferences.getInstance();
-      final pendingData = {
-        'orderData': order,
-        'voucherCode': voucherCode,
-        'userId': userId,
-        'paymentUrl': paymentUrl,
-        'orderId': orderId,
-        'transactionId': transactionId,
-        'createdAt': DateTime.now().toIso8601String(),
-      };
-      
-      print('Storing pending order data: ${jsonEncode(pendingData)}');
-      await prefs.setString('pendingOrder', jsonEncode(pendingData));
-
+      print('Payment URL: $paymentUrl');
       return paymentUrl;
     } catch (e, stackTrace) {
-      print('Error creating VNPay payment: $e');
+      print('=== Payment Creation Error ===');
+      print('Error: $e');
       print('Stack trace: $stackTrace');
       throw Exception('Lỗi tạo thanh toán VNPay: $e');
     }
@@ -117,63 +115,39 @@ class PaymentService {
   }
 
   static Future<Map<String, dynamic>> handlePaymentReturn(Uri returnUri) async {
-    try {
-      print('=== VNPay Payment Return Debug ===');
-      print('Full return URI: $returnUri');
-      print('All query parameters: ${returnUri.queryParameters}');
-      
-      final prefs = await SharedPreferences.getInstance();
-      final pendingOrderJson = prefs.getString('pendingOrder');
-      
-      if (pendingOrderJson == null) {
-        print('Error: No pending order found in storage');
-        throw Exception('Không tìm thấy thông tin đơn hàng đang chờ xử lý');
-      }
+    print('=== VNPay Payment Return ===');
+    print('Full URI: $returnUri');
+    print('Query Parameters: ${returnUri.queryParameters}');
 
-      final pendingOrder = jsonDecode(pendingOrderJson);
-      print('Pending order data: ${jsonEncode(pendingOrder)}');
+    // Get VNPay response parameters
+    final vnpResponseCode = returnUri.queryParameters['vnp_ResponseCode'];
+    final vnpTransactionStatus = returnUri.queryParameters['vnp_TransactionStatus'];
+    final vnpTxnRef = returnUri.queryParameters['vnp_TxnRef'];
+    
+    print('VNPay Parameters:');
+    print('- Response Code: $vnpResponseCode');
+    print('- Transaction Status: $vnpTransactionStatus');
+    print('- Transaction Ref: $vnpTxnRef');
 
-      // Get VNPay response parameters
-      final vnpResponseCode = returnUri.queryParameters['vnp_ResponseCode'];
-      final vnpTransactionStatus = returnUri.queryParameters['vnp_TransactionStatus'];
-      final vnpTxnRef = returnUri.queryParameters['vnp_TxnRef'];
-      
-      print('VNPay Parameters:');
-      print('- Response Code: $vnpResponseCode');
-      print('- Transaction Status: $vnpTransactionStatus');
-      print('- Transaction Ref: $vnpTxnRef');
+    // Call backend API to verify payment
+    final apiUrl = Uri.parse('$baseUrl/api/orders/payment/vnpay/return/mobile')
+        .replace(queryParameters: {
+      'vnp_ResponseCode': vnpResponseCode,
+      'vnp_TxnRef': vnpTxnRef,
+      'vnp_TransactionStatus': vnpTransactionStatus,
+    });
+    
+    print('Calling API: $apiUrl');
+    final response = await http.get(apiUrl);
+    print('API Response Status: ${response.statusCode}');
+    print('API Response Body: ${response.body}');
 
-      // Validate required parameters
-      if (vnpResponseCode == null || vnpTransactionStatus == null || vnpTxnRef == null) {
-        print('Error: Missing required VNPay parameters');
-        throw Exception('Thiếu thông tin thanh toán từ VNPay');
-      }
+    final responseData = jsonDecode(response.body);
+    print('Parsed Response: $responseData');
 
-      // Call backend API to verify payment
-      final apiUrl = Uri.parse('$baseUrl/api/orders/payment/vnpay/return/mobile')
-          .replace(queryParameters: {
-        'vnp_ResponseCode': vnpResponseCode,
-        'vnp_TxnRef': vnpTxnRef,
-        'vnp_TransactionStatus': vnpTransactionStatus,
-      });
-      
-      print('Calling backend API: $apiUrl');
-      final response = await http.get(apiUrl);
-      print('Backend response status: ${response.statusCode}');
-      print('Backend response body: ${response.body}');
-
-      final responseData = jsonDecode(response.body);
-      print('Parsed response data: $responseData');
-
-      // Clear pending order data
-      await prefs.remove('pendingOrder');
-
-      // Get order ID from response
-      final orderId = responseData['data']?['orderId'] ?? pendingOrder['orderId'];
-      if (orderId == null) {
-        throw Exception('Không tìm thấy ID đơn hàng');
-      }
-
+    // Get order ID from response
+    final orderId = responseData['data']?['order']?['id'];
+    if (orderId != null) {
       // Get full order details
       final orderResponse = await http.get(
         Uri.parse('$baseUrl/api/orders/$orderId'),
@@ -181,31 +155,18 @@ class PaymentService {
           'Content-Type': 'application/json',
         },
       );
-      
-      print('Order details response status: ${orderResponse.statusCode}');
-      print('Order details response body: ${orderResponse.body}');
+
+      print('=== Order Details Response ===');
+      print('Status: ${orderResponse.statusCode}');
+      print('Body: ${orderResponse.body}');
 
       if (orderResponse.statusCode == 200) {
         final orderData = jsonDecode(orderResponse.body);
-        print('Retrieved order details: $orderData');
+        print('Order Data: $orderData');
         return orderData;
-      } else {
-        print('Error getting order details: ${orderResponse.body}');
-        // Return pending order data if can't get from API
-        return pendingOrder['orderData'];
       }
-    } catch (e, stackTrace) {
-      print('=== Payment Error ===');
-      print('Error message: $e');
-      print('Stack trace: $stackTrace');
-      // Return pending order data even if there's an error
-      final prefs = await SharedPreferences.getInstance();
-      final pendingOrderJson = prefs.getString('pendingOrder');
-      if (pendingOrderJson != null) {
-        final pendingOrder = jsonDecode(pendingOrderJson);
-        return pendingOrder['orderData'];
-      }
-      throw Exception('Lỗi xử lý kết quả thanh toán: $e');
     }
+
+    return responseData;
   }
 } 
