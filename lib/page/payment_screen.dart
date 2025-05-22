@@ -205,15 +205,42 @@ class _PaymentScreenState extends State<PaymentScreen> {
               MaterialPageRoute(
                 builder: (context) => PaymentWebView(
                   paymentUrl: paymentUrl,
-                  onPaymentComplete: (orderData) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PaymentSuccessScreen(
-                          orderData: orderData,
-                        ),
-                      ),
-                    );
+                  onPaymentComplete: (response) async {
+                    print('=== Payment Response ===');
+                    print('Response: $response');
+
+                    // Get order ID from response
+                    final orderId = response?['orderId'];
+                    print('Order ID: $orderId');
+
+                    if (orderId != null) {
+                      // Get order details from database
+                      final orderResponse = await http.get(
+                        Uri.parse('${NetworkService.defaultIp}/api/orders/$orderId'),
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                      );
+
+                      print('=== Order Response ===');
+                      print('Status: ${orderResponse.statusCode}');
+                      print('Body: ${orderResponse.body}');
+
+                      if (orderResponse.statusCode == 200) {
+                        final orderData = jsonDecode(orderResponse.body);
+                        print('=== Payment Success ===');
+                        print('Order Data: $orderData');
+
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PaymentSuccessScreen(
+                              orderData: orderData,
+                            ),
+                          ),
+                        );
+                      }
+                    }
                   },
                 ),
               ),
