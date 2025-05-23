@@ -6,7 +6,8 @@ import 'package:fashionmobile/page/login_page.dart';
 import 'package:fashionmobile/page/register_page.dart';
 import 'package:fashionmobile/page/orders_page.dart';
 import 'package:fashionmobile/page/payment_success_screen.dart';
-import 'package:fashionmobile/services/payment_service.dart';
+import 'package:fashionmobile/widgets/chat_dialog.dart';
+import 'package:fashionmobile/widgets/home_with_fab.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -22,7 +23,6 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -32,22 +32,21 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
+      builder: DevicePreview.appBuilder, // Giữ nguyên context gốc
       navigatorObservers: [routeObserver],
       initialRoute: '/',
       onGenerateRoute: (settings) {
-        // Handle VNPay web return URL
+        // Xử lý VNPay trả về
         if (settings.name?.startsWith('/payment/vnpay/return/web') == true) {
           final uri = Uri.parse(settings.name!);
           return MaterialPageRoute(
-            builder: (context) => PaymentSuccessScreen(
-              returnUri: uri,
-            ),
+            builder: (context) => PaymentSuccessScreen(returnUri: uri),
           );
         }
         return null;
       },
       routes: {
-        '/': (context) => const HomePage(),
+        '/': (context) => const HomeWithFloatingButton(),
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
         '/product-detail': (context) => const ProductDetailPage(),
@@ -59,4 +58,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
