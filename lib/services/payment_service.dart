@@ -98,6 +98,89 @@ class PaymentService {
     }
   }
 
+  static Future<String> createPayPalPayment({
+    required Map<String, dynamic> orderData,
+    String? voucherCode,
+    int? userId,
+  }) async {
+    try {
+      print('=== Creating PayPal Payment ===');
+      print('Order Data: ${jsonEncode(orderData)}');
+      print('Voucher Code: $voucherCode');
+      print('User ID: $userId');
+      
+      // 1. Create order first
+      final orderResponse = await http.post(
+        Uri.parse('$baseUrl/api/orders'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'userId': userId,
+          'total': orderData['total'],
+          'status': 'Đang xử lý',
+          'paymentStatus': 'Chờ thanh toán',
+          'paymentMethod': orderData['paymentMethod'] ?? 'paypal',
+          'receiverName': orderData['receiverName'],
+          'receiverEmail': orderData['receiverEmail'],
+          'receiverPhone': orderData['receiverPhone'],
+          'receiverAddress': orderData['receiverAddress'],
+          'orderItems': orderData['orderItems'],
+        }),
+      );
+
+      print('=== Order Creation Response ===');
+      print('Status Code: ${orderResponse.statusCode}');
+      print('Response Body: ${orderResponse.body}');
+
+      if (orderResponse.statusCode != 200 && orderResponse.statusCode != 201) {
+        final errorData = jsonDecode(orderResponse.body);
+        throw Exception('Không thể tạo đơn hàng: ${errorData['message'] ?? orderResponse.body}');
+      }
+
+      final order = jsonDecode(orderResponse.body);
+      final orderId = order['id'];
+      print('Created Order ID: $orderId');
+
+      // 2. Create PayPal payment for the order
+      final paymentResponse = await http.post(
+        Uri.parse('$baseUrl/api/orders/$orderId/payment/paypal'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'amount': orderData['total'],
+          'orderInfo': 'Thanh toan don hang #$orderId',
+          'returnUrl': kIsWeb 
+              ? '${Uri.base.origin}/payment/paypal/return'
+              : 'fashionmobile://payment/paypal/return/mobile',
+        }),
+      );
+
+      print('=== PayPal Payment Response ===');
+      print('Status Code: ${paymentResponse.statusCode}');
+      print('Response Body: ${paymentResponse.body}');
+
+      if (paymentResponse.statusCode != 200) {
+        final errorData = jsonDecode(paymentResponse.body);
+        throw Exception('Không thể tạo thanh toán PayPal: ${errorData['message'] ?? paymentResponse.body}');
+      }
+
+      final paymentData = jsonDecode(paymentResponse.body);
+      final success = paymentData['success'] as bool? ?? false;
+      final paymentUrl = paymentData['data']?['paymentUrl'];
+
+      if (!success || paymentUrl == null) {
+        print('Invalid payment data: $paymentData');
+        throw Exception('Không nhận được URL thanh toán từ PayPal');
+      }
+
+      print('PayPal Payment URL: $paymentUrl');
+      return paymentUrl;
+    } catch (e, stackTrace) {
+      print('=== PayPal Payment Creation Error ===');
+      print('Error: $e');
+      print('Stack trace: $stackTrace');
+      throw Exception('Lỗi tạo thanh toán PayPal: $e');
+    }
+  }
+
   static Future<void> launchPaymentUrl(String url) async {
     try {
       print('Launching payment URL: $url');
