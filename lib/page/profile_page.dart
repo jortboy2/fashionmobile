@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import '../models/user_profile.dart';
+import '../services/auth_service.dart';
+import '../services/network_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../services/auth_service.dart';
 import 'lucky_wheel.dart';
 import 'user_vouchers.dart';
+import 'user_profile_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -87,6 +93,19 @@ class ProfilePage extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Column(
                           children: [
+                            _buildActionButton(
+                              context,
+                              icon: Icons.person,
+                              label: 'Thông tin cá nhân',
+                              color: Colors.orange,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const UserProfilePage()),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
                             _buildActionButton(
                               context,
                               icon: Icons.shopping_bag,
@@ -196,4 +215,4 @@ class ProfilePage extends StatelessWidget {
       ),
     );
   }
-} 
+}

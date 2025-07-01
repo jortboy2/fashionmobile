@@ -3,6 +3,7 @@ import '../services/auth_service.dart';
 import '../services/network_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -306,7 +307,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                               ),
                               const SizedBox(height: 16),
 
-                              // Register Link
+                              // Register & Forgot Password Link
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -329,6 +330,24 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                   ),
                                 ],
                               ),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const ForgotPasswordPage()),
+                                    );
+                                  },
+                                  child: const Text(
+                                    'Quên mật khẩu?',
+                                    style: TextStyle(
+                                      color: Colors.blue,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -343,4 +362,4 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       ),
     );
   }
-} 
+}
