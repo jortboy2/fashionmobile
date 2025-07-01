@@ -140,6 +140,10 @@ class PaymentService {
       final orderId = order['id'];
       print('Created Order ID: $orderId');
 
+      // Generate token for the order
+      String token = orderId.toString();
+      print('Generated token: $token');
+
       // 2. Create PayPal payment for the order
       final paymentResponse = await http.post(
         Uri.parse('$baseUrl/api/orders/$orderId/payment/paypal'),
@@ -149,7 +153,8 @@ class PaymentService {
           'orderInfo': 'Thanh toan don hang #$orderId',
           'returnUrl': kIsWeb 
               ? '${Uri.base.origin}/payment/paypal/return'
-              : 'fashionmobile://payment/paypal/return/mobile',
+              : 'fashionmobile://payment/paypal/return/mobile?token=$token',
+          'token': token,
         }),
       );
 
@@ -246,10 +251,53 @@ class PaymentService {
       if (orderResponse.statusCode == 200) {
         final orderData = jsonDecode(orderResponse.body);
         print('Order Data: $orderData');
+        print(orderData);
+        final total = orderData['total'] ?? 0;
+        if (total.isNegative) {
+          throw Exception('Số tiền đơn hàng không hợp lệ');
+        }
         return orderData;
       }
     }
+    return responseData;
+  }
 
+  static Future<Map<String, dynamic>> handlePayPalReturn(Uri returnUri) async {
+    print('=== PayPal Payment Return ===');
+    print('Full URI: $returnUri');
+    print('Query Parameters: ${returnUri.queryParameters}');
+
+    // Lấy các tham số từ PayPal
+    final paymentId = returnUri.queryParameters['paymentId'];
+    final payerId = returnUri.queryParameters['PayerID'];
+    final orderId = returnUri.queryParameters['orderId'];
+
+    print('PayPal Parameters:');
+    print('- paymentId: $paymentId');
+    print('- payerId: $payerId');
+    print('- orderId: $orderId');
+
+    // Gọi backend để xác thực giao dịch PayPal
+    final apiUrl = Uri.parse('$baseUrl/api/orders/payment/paypal/return')
+        .replace(queryParameters: {
+      'paymentId': paymentId,
+      'PayerID': payerId,
+      'orderId': orderId,
+    });
+    print('Calling API: $apiUrl');
+    final response = await http.get(apiUrl);
+    print('API Response Status: ${response.statusCode}');
+    print('API Response Body: ${response.body}');
+
+    final responseData = jsonDecode(response.body);
+    print('Parsed Response: $responseData');
+
+    // Lấy trực tiếp order từ response
+    final orderData = responseData['data']?['order'];
+    if (orderData != null) {
+      print('Order Data: $orderData');
+      return orderData;
+    }
     return responseData;
   }
 } 
