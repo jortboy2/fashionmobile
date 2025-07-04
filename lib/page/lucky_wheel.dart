@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/services.dart';
 
 class Prize {
   final String label;
@@ -39,73 +40,15 @@ class _LuckyWheelState extends State<LuckyWheel>
     with SingleTickerProviderStateMixin {
   static const String baseUrl = NetworkService.defaultIp;
 
-  static final List<Prize> prizes = [
-    Prize(
-      label: 'Giảm 10%',
-      color: Color(0xFFFF6B6B),
-      code: 'SPIN10',
-      value: '10%',
-      discountType: 'percentage',
-    ),
-    Prize(
-      label: 'Giảm 5%',
-      color: Color(0xFF4ECDC4),
-      code: 'SPIN5',
-      value: '5%',
-      discountType: 'percentage',
-    ),
-    Prize(
-      label: 'Giảm 50K',
-      color: Color(0xFFFF9F43),
-      code: 'SPIN50K',
-      value: '50.000đ',
-      discountType: 'fixed',
-    ),
-    Prize(
-      label: 'Chúc bạn may mắn lần sau',
-      color: Color(0xFFBBBBBB),
-      code: null,
-      value: null,
-      discountType: null,
-    ),
-    Prize(
-      label: 'Giảm 20%',
-      color: Color(0xFFE056FD),
-      code: 'SPIN20',
-      value: '20%',
-      discountType: 'percentage',
-    ),
-    Prize(
-      label: 'Giảm 100K',
-      color: Color(0xFFF53B57),
-      code: 'SPIN100K',
-      value: '100.000đ',
-      discountType: 'fixed',
-    ),
-    Prize(
-      label: 'Giảm 1%',
-      color: Color(0xFF5F27CD),
-      code: 'SPIN1',
-      value: '1%',
-      discountType: 'percentage',
-    ),
-    Prize(
-      label: 'Giảm 15%',
-      color: Color(0xFF0ABDE3),
-      code: 'SPIN15',
-      value: '15%',
-      discountType: 'percentage',
-    ),
-  ];
-
-  static const int BETTER_LUCK_INDEX = 3;
-  static const int COOLDOWN_SECONDS = 10;
+  List<Prize> _prizes = [];
+  bool _loadingPrizes = false;
+  String? _prizesError;
+  int? _countWheel;
+  bool _loadingCount = false;
 
   late AnimationController _controller;
   late Animation<double> _animation;
   bool _isSpinning = false;
-  bool _canSpin = true;
-  int _countdown = 0;
   Prize? _selectedPrize;
   bool _showResult = false;
   String? _saveStatus;
@@ -117,7 +60,6 @@ class _LuckyWheelState extends State<LuckyWheel>
       duration: const Duration(seconds: 5),
       vsync: this,
     );
-
     _animation = Tween<double>(
       begin: 0,
       end: 0,
@@ -125,58 +67,135 @@ class _LuckyWheelState extends State<LuckyWheel>
       parent: _controller,
       curve: Curves.easeOutCubic,
     ));
-
-    _checkSpinEligibility();
+    _fetchPrizes();
+    _fetchCountWheel();
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _checkSpinEligibility() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastSpinTime = prefs.getInt('lastSpinTime');
-
-    if (lastSpinTime == null) {
+  Future<void> _fetchPrizes() async {
+    setState(() {
+      _loadingPrizes = true;
+      _prizesError = null;
+    });
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/prizes'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List;
+        setState(() {
+          _prizes = data.map((e) => Prize(
+            label: e['label'],
+            color: Color(int.parse(e['color'].replaceFirst('#', '0xFF'))),
+            code: e['code'],
+            value: e['value'],
+            discountType: e['discountType'],
+          )).toList();
+        });
+      } else {
+        setState(() {
+          _prizesError = 'Lỗi khi lấy danh sách phần thưởng';
+        });
+      }
+    } catch (e) {
       setState(() {
-        _canSpin = true;
-        _countdown = 0;
+        _prizesError = 'Lỗi khi lấy danh sách phần thưởng';
       });
+    } finally {
+      setState(() {
+        _loadingPrizes = false;
+      });
+    }
+  }
+
+  Future<void> _fetchCountWheel() async {
+    setState(() {
+      _loadingCount = true;
+    });
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/users/${widget.userId}'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _countWheel = data['countWheel'] ?? 0;
+        });
+      } else {
+        setState(() {
+          _countWheel = 0;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _countWheel = 0;
+      });
+    } finally {
+      setState(() {
+        _loadingCount = false;
+      });
+    }
+  }
+
+  Future<void> _decrementCountWheel() async {
+  try {
+    final getResponse = await http.get(Uri.parse('$baseUrl/api/users/${widget.userId}'));
+    if (getResponse.statusCode != 200) {
+      print('Lỗi khi lấy user: ${getResponse.body}');
       return;
     }
 
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final secondsPassed = (now - lastSpinTime) / 1000;
-    final secondsUntilNextSpin =
-        math.max(0, (COOLDOWN_SECONDS - secondsPassed).ceil());
+    final currentUser = json.decode(getResponse.body);
+    final currentCount = currentUser["countWheel"] ?? 0;
 
-    setState(() {
-      _canSpin = secondsPassed >= COOLDOWN_SECONDS;
-      _countdown = _canSpin ? 0 : secondsUntilNextSpin;
-    });
-
-    if (!_canSpin) {
-      Future.delayed(const Duration(seconds: 1), _checkSpinEligibility);
+    if (currentCount <= 0) {
+      print('User không còn lượt quay');
+      return;
     }
+
+    final updatedUser = {
+      "id": currentUser["id"],
+      "username": currentUser["username"],
+      "password": currentUser["password"], // Đã mã hóa nên giữ nguyên
+      "email": currentUser["email"],
+      "address": currentUser["address"],
+      "phone": currentUser["phone"],
+      "role": currentUser["role"],
+      "verificationToken": null,
+      "countWheel": currentCount - 1,
+      "active": currentUser["active"],
+    };
+
+    print('Sending PUT with countWheel: ${updatedUser["countWheel"]}');
+
+    final putResponse = await http.put(
+      Uri.parse('$baseUrl/api/users/${widget.userId}'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(updatedUser),
+    );
+
+    print('PUT response: ${putResponse.statusCode}');
+    print('PUT response body: ${putResponse.body}');
+
+    if (putResponse.statusCode == 200) {
+      setState(() {
+        _countWheel = currentCount - 1;
+      });
+    }
+  } catch (e) {
+    print('Lỗi giảm countWheel: $e');
   }
+}
+
+
+  bool get _canUserSpin => (_countWheel ?? 0) > 0 && !_isSpinning && !_loadingPrizes && !_loadingCount;
 
   Future<void> _saveVoucherToAPI(Prize prize) async {
     if (prize.code == null) return;
-
     try {
       final startDate = DateTime.now();
       final endDate = startDate.add(const Duration(hours: 24));
-
       int discountValue;
       if (prize.discountType == 'percentage') {
         discountValue = int.parse(prize.value!.replaceAll('%', ''));
       } else {
-        discountValue =
-            int.parse(prize.value!.replaceAll(RegExp(r'[^\d]'), ''));
+        discountValue = int.parse(prize.value!.replaceAll(RegExp(r'[^\d]'), ''));
       }
-
       final voucherData = {
         'code': prize.code,
         'discountType': prize.discountType,
@@ -186,13 +205,11 @@ class _LuckyWheelState extends State<LuckyWheel>
         'used': false,
         'userId': widget.userId,
       };
-
       final response = await http.post(
         Uri.parse('$baseUrl/api/vouchers'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(voucherData),
       );
-
       setState(() {
         _saveStatus = response.statusCode == 200 ? 'success' : 'error';
       });
@@ -204,36 +221,25 @@ class _LuckyWheelState extends State<LuckyWheel>
   }
 
   void _spinWheel() async {
-    if (_isSpinning || !_canSpin) return;
-
+    if (!_canUserSpin) return;
     setState(() {
       _isSpinning = true;
       _showResult = false;
       _selectedPrize = null;
       _saveStatus = null;
     });
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('lastSpinTime', DateTime.now().millisecondsSinceEpoch);
-
-    // Determine winning prize with weighted probability
+    // Xác suất trúng "Chúc bạn may mắn lần sau" 10%
+    int betterLuckIndex = _prizes.indexWhere((p) => p.label.toLowerCase().contains('may mắn'));
     int prizeIndex;
-    if (math.Random().nextDouble() < 0.1) {
-      prizeIndex = BETTER_LUCK_INDEX;
+    if (math.Random().nextDouble() < 0.1 && betterLuckIndex != -1) {
+      prizeIndex = betterLuckIndex;
     } else {
-      final otherPrizes = List.generate(prizes.length, (i) => i)
-          .where((i) => i != BETTER_LUCK_INDEX)
-          .toList();
+      final otherPrizes = List.generate(_prizes.length, (i) => i).where((i) => i != betterLuckIndex).toList();
       prizeIndex = otherPrizes[math.Random().nextInt(otherPrizes.length)];
     }
-
-    final segmentAngle = 360 / prizes.length;
+    final segmentAngle = 360 / _prizes.length;
     final targetAngle = 360 * 5 - (prizeIndex * segmentAngle) + (segmentAngle / 2);
-
-    // Điều chỉnh lại index thực sự trúng
-    final realPrizeIndex = (prizeIndex - 1 + prizes.length) % prizes.length;
-    final prize = prizes[realPrizeIndex];
-
+    final prize = _prizes[prizeIndex];
     _animation = Tween<double>(
       begin: _animation.value,
       end: targetAngle,
@@ -241,19 +247,17 @@ class _LuckyWheelState extends State<LuckyWheel>
       parent: _controller,
       curve: Curves.easeOutCubic,
     ));
-
-    _controller.forward(from: 0).then((_) {
+    _controller.forward(from: 0).then((_) async {
+      await _decrementCountWheel(); // Trừ lượt quay NGAY SAU khi quay xong
       setState(() {
         _isSpinning = false;
         _selectedPrize = prize;
         _showResult = true;
       });
-
       if (prize.code != null) {
-        _saveVoucherToAPI(prize);
+        await _saveVoucherToAPI(prize);
       }
-
-      _checkSpinEligibility();
+      await _fetchCountWheel(); // Đảm bảo đồng bộ lượt quay mới nhất từ server
     });
   }
 
@@ -262,168 +266,176 @@ class _LuckyWheelState extends State<LuckyWheel>
     return Dialog(
       child: Container(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Vòng quay may mắn',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            if (!_showResult) ...[
-              Text(
-                _canSpin
-                    ? 'Quay để nhận mã giảm giá đặc biệt!'
-                    : 'Vui lòng đợi $_countdown giây trước khi quay tiếp.',
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 20),
-              if (!_canSpin && _countdown > 0)
-                LinearProgressIndicator(
-                  value: _countdown / COOLDOWN_SECONDS,
-                  backgroundColor: Colors.grey[200],
-                  valueColor:
-                      const AlwaysStoppedAnimation<Color>(Colors.purple),
-                ),
-              const SizedBox(height: 20),
-              SizedBox(
-                height: 300,
-                width: 300,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Pointer
-                    Positioned(
-                      top: 0,
-                      child: CustomPaint(
-                        size: const Size(20, 20),
-                        painter: PointerPainter(),
-                      ),
-                    ),
-                    // Wheel
-                    AnimatedBuilder(
-                      animation: _animation,
-                      builder: (context, child) {
-                        return Transform.rotate(
-                          angle: _animation.value * (math.pi / 180),
-                          child: CustomPaint(
-                            size: const Size(280, 280),
-                            painter: WheelPainter(prizes),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _canSpin ? _spinWheel : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _canSpin ? Colors.purple : Colors.grey,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                ),
-                child: Text(
-                  _isSpinning
-                      ? 'Đang quay...'
-                      : _canSpin
-                          ? 'Quay ngay!'
-                          : 'Đợi $_countdown giây',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold, // Tuỳ chọn: in đậm
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ] else ...[
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: _selectedPrize!.color,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    _selectedPrize!.value ?? '!',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                _selectedPrize!.code != null
-                    ? 'Chúc mừng! Bạn đã nhận được:'
-                    : 'Chúc bạn may mắn lần sau',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (_selectedPrize!.code != null) ...[
-                const SizedBox(height: 10),
-                Text(_selectedPrize!.label),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
+        child: _loadingPrizes || _loadingCount
+            ? const SizedBox(height: 300, child: Center(child: CircularProgressIndicator()))
+            : _prizesError != null
+                ? SizedBox(height: 300, child: Center(child: Text(_prizesError!)))
+                : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        _selectedPrize!.code!,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
+                      const Text(
+                        'Vòng quay may mắn',
+                        style: TextStyle(
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: Colors.purple,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      IconButton(
-                        icon: const Icon(Icons.copy),
-                        onPressed: () {
-                          // Implement copy functionality
-                        },
-                      ),
+                      const SizedBox(height: 10),
+                      if (_countWheel != null)
+                        Text(
+                          'Lượt quay còn lại: $_countWheel',
+                          style: const TextStyle(
+                            color: Colors.purple,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      const SizedBox(height: 20),
+                      if (!_showResult) ...[
+                        Text(
+                          _canUserSpin
+                              ? 'Quay để nhận mã giảm giá đặc biệt!'
+                              : 'Bạn không có lượt quay nào cả.',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          height: 300,
+                          width: 300,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Pointer
+                              Positioned(
+                                top: 0,
+                                child: CustomPaint(
+                                  size: const Size(20, 20),
+                                  painter: PointerPainter(),
+                                ),
+                              ),
+                              // Wheel
+                              AnimatedBuilder(
+                                animation: _animation,
+                                builder: (context, child) {
+                                  return Transform.rotate(
+                                    angle: _animation.value * (math.pi / 180),
+                                    child: CustomPaint(
+                                      size: const Size(280, 280),
+                                      painter: WheelPainter(_prizes),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: _canUserSpin ? _spinWheel : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _canUserSpin ? Colors.purple : Colors.grey,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          ),
+                          child: Text(
+                            _isSpinning
+                                ? 'Đang quay...'
+                                : _canUserSpin
+                                    ? 'Quay ngay!'
+                                    : 'Hết lượt quay',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: _selectedPrize!.color,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              _selectedPrize!.value ?? '!',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          _selectedPrize!.code != null
+                              ? 'Chúc mừng! Bạn đã nhận được:'
+                              : 'Chúc bạn may mắn lần sau',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (_selectedPrize!.code != null) ...[
+                          const SizedBox(height: 10),
+                          Text(_selectedPrize!.label),
+                          const SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _selectedPrize!.code!,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.purple,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                IconButton(
+                                  icon: const Icon(Icons.copy),
+                                  onPressed: () {
+                                    // Copy code to clipboard
+                                    Clipboard.setData(ClipboardData(text: _selectedPrize!.code!));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Đã sao chép mã!')),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_saveStatus == 'success')
+                            const Text(
+                              'Mã giảm giá đã được lưu vào tài khoản của bạn',
+                              style: TextStyle(color: Colors.green),
+                            ),
+                          if (_saveStatus == 'error')
+                            const Text(
+                              'Có lỗi khi lưu mã giảm giá. Vui lòng thử lại sau.',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Mã giảm giá có hiệu lực trong 24 giờ',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                        TextButton(
+                          onPressed: widget.onClose,
+                          child: const Text('Đóng'),
+                        ),
+                      ],
                     ],
                   ),
-                ),
-                if (_saveStatus == 'success')
-                  const Text(
-                    'Mã giảm giá đã được lưu vào tài khoản của bạn',
-                    style: TextStyle(color: Colors.green),
-                  ),
-                if (_saveStatus == 'error')
-                  const Text(
-                    'Có lỗi khi lưu mã giảm giá. Vui lòng thử lại sau.',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Mã giảm giá có hiệu lực trong 24 giờ',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: widget.onClose,
-                child: const Text('Đóng'),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
