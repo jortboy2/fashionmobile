@@ -70,6 +70,37 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 });
                 return NavigationDecision.prevent;
               }
+              // Bắt custom scheme cho PayPal
+              if (request.url.startsWith('fashionmobile://payment/paypal/return/mobile')) {
+                final uri = Uri.parse(request.url);
+                PaymentService.handlePayPalReturn(uri).then((orderData) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PaymentSuccessScreen(
+                        orderData: orderData,
+                      ),
+                    ),
+                  );
+                }).catchError((error) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Lỗi xử lý thanh toán PayPal: $error'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  Navigator.pop(context);
+                });
+                return NavigationDecision.prevent;
+              }
+              // Bắt custom scheme cho PayPal hoặc các cổng khác
+              if (request.url.startsWith('fashionmobile://')) {
+                final uri = Uri.parse(request.url);
+                final orderId = uri.queryParameters['orderId'];
+                widget.onPaymentComplete?.call({'orderId': orderId});
+                Navigator.of(context).pop();
+                return NavigationDecision.prevent;
+              }
               return NavigationDecision.navigate;
             },
             onUrlChange: (UrlChange change) {

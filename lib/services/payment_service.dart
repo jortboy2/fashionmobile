@@ -98,6 +98,94 @@ class PaymentService {
     }
   }
 
+  static Future<String> createPayPalPayment({
+    required Map<String, dynamic> orderData,
+    String? voucherCode,
+    int? userId,
+  }) async {
+    try {
+      print('=== Creating PayPal Payment ===');
+      print('Order Data: ${jsonEncode(orderData)}');
+      print('Voucher Code: $voucherCode');
+      print('User ID: $userId');
+      
+      // 1. Create order first
+      final orderResponse = await http.post(
+        Uri.parse('$baseUrl/api/orders'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'userId': userId,
+          'total': orderData['total'],
+          'status': 'Đang xử lý',
+          'paymentStatus': 'Chờ thanh toán',
+          'paymentMethod': orderData['paymentMethod'] ?? 'paypal',
+          'receiverName': orderData['receiverName'],
+          'receiverEmail': orderData['receiverEmail'],
+          'receiverPhone': orderData['receiverPhone'],
+          'receiverAddress': orderData['receiverAddress'],
+          'orderItems': orderData['orderItems'],
+        }),
+      );
+
+      print('=== Order Creation Response ===');
+      print('Status Code: ${orderResponse.statusCode}');
+      print('Response Body: ${orderResponse.body}');
+
+      if (orderResponse.statusCode != 200 && orderResponse.statusCode != 201) {
+        final errorData = jsonDecode(orderResponse.body);
+        throw Exception('Không thể tạo đơn hàng: ${errorData['message'] ?? orderResponse.body}');
+      }
+
+      final order = jsonDecode(orderResponse.body);
+      final orderId = order['id'];
+      print('Created Order ID: $orderId');
+
+      // Generate token for the order
+      String token = orderId.toString();
+      print('Generated token: $token');
+
+      // 2. Create PayPal payment for the order
+      final paymentResponse = await http.post(
+        Uri.parse('$baseUrl/api/orders/$orderId/payment/paypal'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'amount': orderData['total'],
+          'orderInfo': 'Thanh toan don hang #$orderId',
+          'returnUrl': kIsWeb 
+              ? '${Uri.base.origin}/payment/paypal/return'
+              : 'fashionmobile://payment/paypal/return/mobile?token=$token',
+          'token': token,
+        }),
+      );
+
+      print('=== PayPal Payment Response ===');
+      print('Status Code: ${paymentResponse.statusCode}');
+      print('Response Body: ${paymentResponse.body}');
+
+      if (paymentResponse.statusCode != 200) {
+        final errorData = jsonDecode(paymentResponse.body);
+        throw Exception('Không thể tạo thanh toán PayPal: ${errorData['message'] ?? paymentResponse.body}');
+      }
+
+      final paymentData = jsonDecode(paymentResponse.body);
+      final success = paymentData['success'] as bool? ?? false;
+      final paymentUrl = paymentData['data']?['paymentUrl'];
+
+      if (!success || paymentUrl == null) {
+        print('Invalid payment data: $paymentData');
+        throw Exception('Không nhận được URL thanh toán từ PayPal');
+      }
+
+      print('PayPal Payment URL: $paymentUrl');
+      return paymentUrl;
+    } catch (e, stackTrace) {
+      print('=== PayPal Payment Creation Error ===');
+      print('Error: $e');
+      print('Stack trace: $stackTrace');
+      throw Exception('Lỗi tạo thanh toán PayPal: $e');
+    }
+  }
+
   static Future<void> launchPaymentUrl(String url) async {
     try {
       print('Launching payment URL: $url');
@@ -163,10 +251,53 @@ class PaymentService {
       if (orderResponse.statusCode == 200) {
         final orderData = jsonDecode(orderResponse.body);
         print('Order Data: $orderData');
+        print(orderData);
+        final total = orderData['total'] ?? 0;
+        if (total.isNegative) {
+          throw Exception('Số tiền đơn hàng không hợp lệ');
+        }
         return orderData;
       }
     }
+    return responseData;
+  }
 
+  static Future<Map<String, dynamic>> handlePayPalReturn(Uri returnUri) async {
+    print('=== PayPal Payment Return ===');
+    print('Full URI: $returnUri');
+    print('Query Parameters: ${returnUri.queryParameters}');
+
+    // Lấy các tham số từ PayPal
+    final paymentId = returnUri.queryParameters['paymentId'];
+    final payerId = returnUri.queryParameters['PayerID'];
+    final orderId = returnUri.queryParameters['orderId'];
+
+    print('PayPal Parameters:');
+    print('- paymentId: $paymentId');
+    print('- payerId: $payerId');
+    print('- orderId: $orderId');
+
+    // Gọi backend để xác thực giao dịch PayPal
+    final apiUrl = Uri.parse('$baseUrl/api/orders/payment/paypal/return')
+        .replace(queryParameters: {
+      'paymentId': paymentId,
+      'PayerID': payerId,
+      'orderId': orderId,
+    });
+    print('Calling API: $apiUrl');
+    final response = await http.get(apiUrl);
+    print('API Response Status: ${response.statusCode}');
+    print('API Response Body: ${response.body}');
+
+    final responseData = jsonDecode(response.body);
+    print('Parsed Response: $responseData');
+
+    // Lấy trực tiếp order từ response
+    final orderData = responseData['data']?['order'];
+    if (orderData != null) {
+      print('Order Data: $orderData');
+      return orderData;
+    }
     return responseData;
   }
 } 

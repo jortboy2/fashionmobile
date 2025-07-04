@@ -256,6 +256,65 @@ class _PaymentScreenState extends State<PaymentScreen> {
             );
           }
         }
+      } else if (_selectedPaymentMethod == 'paypal') {
+        // For PayPal
+        try {
+          final paymentUrl = await PaymentService.createPayPalPayment(
+            voucherCode: _appliedDiscount != null ? _appliedDiscount!['code'] : null,
+            userId: userId,
+            orderData: orderData,
+          );
+          await CartService.clearCart();
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PaymentWebView(
+                  paymentUrl: paymentUrl,
+                  onPaymentComplete: (response) async {
+                    print('=== PayPal Payment Response ===');
+                    print('Response: $response');
+                    final orderId = response?['orderId'];
+                    print('Order ID: $orderId');
+                    if (orderId != null) {
+                      final orderResponse = await http.get(
+                        Uri.parse('${NetworkService.defaultIp}/api/orders/$orderId'),
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                      );
+                      print('=== Order Response ===');
+                      print('Status: ${orderResponse.statusCode}');
+                      print('Body: ${orderResponse.body}');
+                      if (orderResponse.statusCode == 200) {
+                        final orderData = jsonDecode(orderResponse.body);
+                        print('=== Payment Success ===');
+                        print('Order Data: $orderData');
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PaymentSuccessScreen(
+                              orderData: orderData,
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Lỗi thanh toán PayPal: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -466,6 +525,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     RadioListTile<String>(
                       title: const Text('Thanh toán qua VNPay'),
                       value: 'vnpay',
+                      groupValue: _selectedPaymentMethod,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedPaymentMethod = value!;
+                        });
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Thanh toán qua PayPal'),
+                      value: 'paypal',
                       groupValue: _selectedPaymentMethod,
                       onChanged: (value) {
                         setState(() {

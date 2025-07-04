@@ -168,7 +168,8 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
   }
 
   Widget _buildPaymentInfo(Map<String, dynamic> order) {
-    if (order['paymentMethod']?.toLowerCase() != 'vnpay') {
+    final paymentMethod = order['paymentMethod']?.toLowerCase();
+    if (paymentMethod != 'vnpay' && paymentMethod != 'paypal') {
       return const SizedBox.shrink();
     }
 
@@ -195,9 +196,9 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Thông tin thanh toán',
-                style: TextStyle(
+              Text(
+                'Thông tin thanh toán ${paymentMethod?.toUpperCase()}',
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -297,7 +298,7 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                 onPressed: () => _handlePayAgain(context, order),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  backgroundColor: Colors.blue,
+                  backgroundColor: paymentMethod == 'paypal' ? Colors.blue[700] : Colors.blue,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
